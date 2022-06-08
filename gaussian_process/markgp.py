@@ -1,10 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import gpflow
-from typing import Dict, Optional, Tuple
-from gpflow.utilities import to_default_float, set_trainable
+from typing import Dict
+from gpflow.utilities import to_default_float  # set_trainable
 
 
 original_dataset, info = tfds.load(name="mnist", split=tfds.Split.TRAIN, with_info=True)
