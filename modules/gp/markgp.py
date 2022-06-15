@@ -79,7 +79,11 @@ data_iterator = iter(dataset)
 training_loss = model.training_loss_closure(data_iterator)
 
 logf = []
-optimizer = tf.optimizers.Adam(learning_rate=1e-4)
+lr_schedule = tf.optimizers.schedules.ExponentialDecay(
+    initial_learning_rate=1e-2,
+    decay_steps=1000000,
+    decay_rate=0.9)
+optimizer = tf.optimizers.Adam(learning_rate=lr_schedule)
 
 
 @tf.function
@@ -97,8 +101,7 @@ for step in range(1000000):
         logf.append(elbo)
 
         m, v = model.predict_y(test_images)
-        preds = np.argmax(m, 1) #.reshape(test_labels.numpy().shape)
-        preds = tf.one_hot(preds, 10, dtype='int32')
+        preds = tf.one_hot(np.argmax(m, 1), 10, dtype='int32')
         correct = preds == test_labels.numpy()
         acc = np.average(correct) * 100.0
 
