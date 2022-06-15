@@ -95,9 +95,10 @@ for step in range(1000000):
         preds = tf.one_hot(np.argmax(m, 1), 10, dtype='int32')
         correct = preds == test_labels.numpy()
         acc = np.average(correct) * 100.0
-
-        print("ELBO: {:.4e}, Accuracy is {:.4f}%".format(elbo, acc))
-        f.write("{:.4e} {:.4f} {:.4f} {:.4f}\n".format(
+        lr = optimizer._decayed_lr(tf.float32)
+        print("Step: {:.0f}, Learning Rate: {:.2e}, ELBO: {:.4e}, Accuracy: {:.4f}%".format(step, lr, elbo, acc))
+        f.write("{:.0f} {:.4e} {:.4f} {:.4f} {:.4f}\n".format(
+            step,
             elbo,
             acc,
             model.kernel.variance.numpy(),
