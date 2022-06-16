@@ -93,7 +93,7 @@ f.write("elbo accuracy variance lengthscale\n")
 print("Starting optimisation...")
 for step in range(100_000):
     optimization_step()
-    if step % 100 == 0:
+    if step % 1000 == 0:
         elbo = -training_loss().numpy()
         logf.append(elbo)
 
