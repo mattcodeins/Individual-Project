@@ -30,13 +30,20 @@ dataset = (
 )
 
 num_mnist_classes = 10
-num_inducing_points = 750
+num_inducing_points = 200
 images_subset, _ = next(iter(dataset))
-images_subset = tf.reshape(images_subset, [-1, image_size])
 
 kernel = gpflow.kernels.SquaredExponential()
-likelihood = gpflow.likelihoods.Softmax(num_mnist_classes)
+# kernel = gpflow.kernels.Matern32() + gpflow.kernels.White(variance=0.01)
+# likelihood = gpflow.likelihoods.Softmax(num_mnist_classes)
 Z = images_subset.numpy()[:num_inducing_points, :]
+
+class MySoftmax(gpflow.likelihoods.Softmax):
+    def _log_prob(self, F, Y):
+        return -tf.nn.sparse_softmax_cross_entropy_with_logits(logits=F, labels=tf.argmax(Y, axis=1))
+
+
+likelihood = MySoftmax(num_mnist_classes)
 
 model = gpflow.models.SVGP(
     kernel,
@@ -47,7 +54,6 @@ model = gpflow.models.SVGP(
     whiten=False,
     q_diag=True
 )
-
 
 original_test_dataset, info = tfds.load(name="mnist", split=tfds.Split.TEST, with_info=True)
 test_dataset = (
@@ -64,8 +70,8 @@ training_loss = model.training_loss_closure(data_iterator)
 
 logf = []
 # lr_sched = tf.optimizers.schedules.ExponentialDecay(
-#     initial_learning_rate=1e-1,
-#     decay_steps=10,
+#     initial_learning_rate=1e-5,
+#     decay_steps=1000,
 #     decay_rate=0.8)
 boundaries = list(np.arange(1,10)*1e4)
 print(boundaries)
@@ -85,9 +91,9 @@ def optimization_step():
 f = open("training_results.txt", "w")
 f.write("elbo accuracy variance lengthscale\n")
 print("Starting optimisation...")
-for step in range(100000):
+for step in range(100_000):
     optimization_step()
-    if step % 1000 == 0:
+    if step % 100 == 0:
         elbo = -training_loss().numpy()
         logf.append(elbo)
 
@@ -102,6 +108,7 @@ for step in range(100000):
             elbo,
             acc,
             model.kernel.variance.numpy(),
-            model.kernel.lengthscales.numpy())
+            model.kernel.lengthscales.numpy()
+            )
         )
 f.close()
