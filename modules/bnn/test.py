@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from modules import BayesLinear, GaussianKLLoss, ELBO
+from modules import BayesLinear, GaussianKLLoss, nELBO
 
 import matplotlib.pyplot as plt
 
@@ -33,7 +33,7 @@ model = nn.Sequential(
 
 gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
 kl_loss = GaussianKLLoss()
-elbo = ELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
+nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
 
 noise_var = 0.05 ** 2 * torch.ones(x.shape[0])
 
@@ -44,7 +44,7 @@ def train_step(model, opt, elbo, noise_var, dataloader, N_data):
 
 for step in range(3000):
     y_pred = model(x)
-    loss, nll, kl = elbo(model, (y, y_pred, noise_var))
+    loss, nll, kl = nelbo(model, (y, y_pred, noise_var))
 
     opt.zero_grad()
     loss.backward()

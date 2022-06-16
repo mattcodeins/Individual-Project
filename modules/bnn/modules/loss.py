@@ -35,9 +35,9 @@ class GaussianKLLoss(_Loss):
         return BF.gaussian_kl_loss(model)
 
 
-class ELBO(_Loss):
+class nELBO(_Loss):
     def __init__(self, nll_loss, kl_loss):
-        super(ELBO, self).__init__()
+        super(nELBO, self).__init__()
         self.nll_loss = nll_loss
         self.kl_loss = kl_loss
 
@@ -46,4 +46,4 @@ class ELBO(_Loss):
         Arguments:
             model (nn.Module): a model to be calculated for KL-divergence.
         """
-        return BF.elbo(model, loss_args, nll_loss=self.nll_loss, kl_loss=self.kl_loss)
+        return BF.nelbo(model, loss_args, nll_loss=self.nll_loss, kl_loss=self.kl_loss)

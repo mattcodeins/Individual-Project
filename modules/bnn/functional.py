@@ -40,7 +40,7 @@ def gaussian_kl_loss(model):
     return kl_sum
 
 
-def elbo(model, loss_args, nll_loss, kl_loss):
+def nelbo(model, loss_args, nll_loss, kl_loss):
     """
     An method for calculating KL divergence of whole layers in the model.
 
@@ -48,10 +48,10 @@ def elbo(model, loss_args, nll_loss, kl_loss):
     multivariate distribution
     """
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
-    elbo = torch.Tensor([0]).to(device)
+    nelbo = torch.Tensor([0]).to(device)
     N_data = loss_args[0].shape[0]
     nll = nll_loss(*loss_args) / N_data
     kl = kl_loss(model)
-    elbo = nll + kl
+    nelbo = nll + kl
 
-    return elbo, nll, kl
+    return nelbo, nll, kl
