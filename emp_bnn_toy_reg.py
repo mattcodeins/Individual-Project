@@ -30,6 +30,7 @@ def predict(bnn, x_test, K=1):  # Monte Carlo sampling using K samples
 
 
 if __name__ == "__main__":
+    torch.manual_seed(1)
 
     # create dataset
     N_data = 100; noise_std = 0.1

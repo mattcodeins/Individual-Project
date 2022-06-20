@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+import torchvision
 
-import datasets.toy_regression as d
 from modules.bnn.modules.linear import make_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.utils import to_numpy
+
+import datasets.mnist as d
 
 
 def train_step(model, opt, nelbo, log_noise_var, dataloader, N_data, device):
@@ -33,8 +35,14 @@ if __name__ == "__main__":
     torch.manual_seed(1)
 
     # create dataset
-    N_data = 100; noise_std = 0.1
-    dataloader, dataset, x_train, y_train, x_test, y_test = d.create_regression_dataset(N_data, noise_std)
+    batch_size_train = 64
+    batch_size_test = 1000
+    train_loader, test_loader = d.import_normalised_mnist(batch_size_train, batch_size_test)
+
+
+
+
+
 
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
