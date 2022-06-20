@@ -1,9 +1,11 @@
 import torch
 
-from modules import BayesLinear
+from modules.bnn.modules.emp_linear import EmpBayesLinear
+
+from .modules.linear import BayesLinear
 
 
-def _gaussian_kl_loss(mean_1, std_1, mean_2, std_2):
+def _gaussian_kl(mean_1, std_1, mean_2, std_2):
     """
     KL divergence between Gaussian distribtuions.
 
@@ -22,35 +24,29 @@ def _gaussian_kl_loss(mean_1, std_1, mean_2, std_2):
 def gaussian_kl_loss(model):
     """
     KL divergence between approximate posterior and prior, assuming both are Gaussian, of all layers in the model.
-    This is the complexity cost in Weight Uncertainty in Neural Networks.
+    This is the closed form complexity cost in Weight Uncertainty in Neural Networks.
     """
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
     kl = torch.Tensor([0]).to(device)
     kl_sum = torch.Tensor([0]).to(device)
 
     for m in model.modules():
-        if isinstance(m, (BayesLinear)):
-            kl = _gaussian_kl_loss(m.weight_mean, m.weight_std, m.prior_weight_mean, m.prior_weight_std)
+        if isinstance(m, (BayesLinear)) or isinstance(m, (EmpBayesLinear)):
+            kl = _gaussian_kl(m.weight_mean, m.weight_std, m.prior_weight_mean, m.prior_weight_std)
             kl_sum += kl
 
             if m.bias:
-                kl = _gaussian_kl_loss(m.bias_mean, m.bias_std, m.prior_bias_mean, m.prior_bias_std)
+                kl = _gaussian_kl(m.bias_mean, m.bias_std, m.prior_bias_mean, m.prior_bias_std)
                 kl_sum += kl
 
     return kl_sum
 
 
 def nelbo(model, loss_args, nll_loss, kl_loss):
-    """
-    An method for calculating KL divergence of whole layers in the model.
-
-    nll_loss is reduce by sum, but then we divide by N, so we find mean over data, but true log likelihood over
-    multivariate distribution
-    """
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
     nelbo = torch.Tensor([0]).to(device)
-    N_data = loss_args[0].shape[0]
-    nll = nll_loss(*loss_args) / N_data
+    # N_data = loss_args[0].shape[0]
+    nll = nll_loss(*loss_args)
     kl = kl_loss(model)
     nelbo = nll + kl
 

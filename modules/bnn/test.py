@@ -8,23 +8,6 @@ from modules import BayesLinear, GaussianKLLoss, nELBO
 
 import matplotlib.pyplot as plt
 
-
-def kl_divergence(bnn):
-    kl = 0.0
-    for module in bnn:
-        if hasattr(module, 'kl_divergence'):
-            kl = kl + module.kl_divergence()
-    return kl
-
-
-x = torch.linspace(-2, 2, 500)
-y = x.pow(3) - x.pow(2) + 3*torch.rand(x.size())
-x = torch.unsqueeze(x, dim=1)
-y = torch.unsqueeze(y, dim=1)
-
-plt.scatter(x.data.numpy(), y.data.numpy())
-plt.show()
-
 model = nn.Sequential(
     BayesLinear(in_features=1, out_features=100),
     nn.ReLU(),
@@ -39,8 +22,21 @@ noise_var = 0.05 ** 2 * torch.ones(x.shape[0])
 
 opt = optim.Adam(model.parameters(), lr=0.01)
 
-def train_step(model, opt, elbo, noise_var, dataloader, N_data):
-    pass
+
+def train_step(model, opt, elbo, noise_var, dataloader, N_data, device):
+    for _, (x, y) in enumerate(dataloader):
+        x = x.to(device)
+        y = y.to(device)
+        opt.zero_grad()  # opt is the optimiser
+        ### begin of your code ###
+        y_pred = model(x)
+        loss, nll, kl = nelbo(model, (y, y_pred, noise_var))
+
+        ### end of your code ###
+        loss.backward()
+        opt.step()
+    return nll, kl
+
 
 for step in range(3000):
     y_pred = model(x)

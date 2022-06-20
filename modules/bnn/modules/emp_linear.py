@@ -6,14 +6,14 @@ import torch.nn.functional as F
 import torch.distributions as dist
 
 
-class BayesLinear(nn.Module):
+class EmpBayesLinear(nn.Module):
     """Applies a linear transformation to the incoming data: y = xW^T + b, where
        the weight W and bias b are sampled from the approximate q distribSution.
     """
-    def __init__(self, in_features, out_features, bias=True, prior_weight_std=1.0,
-                 prior_bias_std=1.0, init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
+    def __init__(self, in_features, out_features, prior_std, bias=True,
+                 init_std=0.05, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
-        super(BayesLinear, self).__init__()
+        super(EmpBayesLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
 
@@ -32,14 +32,14 @@ class BayesLinear(nn.Module):
 
         # prior parameters (Gaussian)
         prior_mean = 0.0
-        if sqrt_width_scaling:  # prior variance scales as 1/in_features
-            prior_weight_std /= self.in_features ** 0.5
         # prior parameters are registered as constants
         self.register_buffer('prior_weight_mean', torch.full_like(self.weight_mean, prior_mean))
-        self.register_buffer('prior_weight_std', torch.full_like(self._weight_std_param, prior_weight_std))
+        # self.register_buffer('prior_weight_std', torch.full_like(self._weight_std_param, prior_weight_std))
+        self.prior_weight_std = prior_std
         if self.bias:
             self.register_buffer('prior_bias_mean', torch.full_like(self.bias_mean, prior_mean))
-            self.register_buffer('prior_bias_std', torch.full_like(self._bias_std_param, prior_bias_std))
+            # self.register_buffer('prior_bias_std', torch.full_like(self._bias_std_param, prior_bias_std))
+            self.prior_bias_std = prior_std
         else:
             self.register_buffer('prior_bias_mean', None)
             self.register_buffer('prior_bias_std', None)
@@ -102,11 +102,12 @@ class BayesLinear(nn.Module):
 
 
 # construct a BNN
-def make_linear_bnn(layer_sizes, activation='LeakyReLU', **layer_kwargs):
+def make_linear_emp_bnn(layer_sizes, activation='LeakyReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
+    net.register_parameter(name='prior_std', param=torch.nn.Parameter(torch.tensor(0.05)))
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'BayesLinear{i}', BayesLinear(dim_in, dim_out, **layer_kwargs))
+        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net.prior_std, **layer_kwargs))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net
