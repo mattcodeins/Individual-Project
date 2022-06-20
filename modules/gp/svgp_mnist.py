@@ -30,18 +30,21 @@ dataset = (
 )
 
 num_mnist_classes = 10
-num_inducing_points = 200
-images_subset, _ = next(iter(dataset))
+num_inducing_points = 750
+is1, _ = next(iter(dataset))
+is2, _ = next(iter(dataset))
+is3, _ = next(iter(dataset))
+is4, _ = next(iter(dataset))
+images_subset = np.concatenate((is1, is2, is3, is4))
+
+Z = images_subset[:num_inducing_points, :]
+print(Z.shape)
 
 kernel = gpflow.kernels.SquaredExponential()
-# kernel = gpflow.kernels.Matern32() + gpflow.kernels.White(variance=0.01)
-# likelihood = gpflow.likelihoods.Softmax(num_mnist_classes)
-Z = images_subset.numpy()[:num_inducing_points, :]
 
 class MySoftmax(gpflow.likelihoods.Softmax):
     def _log_prob(self, F, Y):
         return -tf.nn.sparse_softmax_cross_entropy_with_logits(logits=F, labels=tf.argmax(Y, axis=1))
-
 
 likelihood = MySoftmax(num_mnist_classes)
 
@@ -73,9 +76,9 @@ logf = []
 #     initial_learning_rate=1e-5,
 #     decay_steps=1000,
 #     decay_rate=0.8)
-boundaries = list(np.arange(1,10)*1e4)
+boundaries = list(np.arange(1,5)*2e4)
 print(boundaries)
-values = list(10 ** np.arange(-2,-12,-1).astype(float))
+values = list(10 ** np.arange(-2,-7,-1).astype(float))
 print(values)
 lr_sched = tf.optimizers.schedules.PiecewiseConstantDecay(
     boundaries, values
