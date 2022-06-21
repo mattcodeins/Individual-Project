@@ -41,9 +41,9 @@ class nELBO(_Loss):
         self.nll_loss = nll_loss
         self.kl_loss = kl_loss
 
-    def forward(self, model, loss_args):
+    def forward(self, model, loss_args, minibatch_ratio):
         """
         Arguments:
             model (nn.Module): a model to be calculated for KL-divergence.
         """
-        return BF.nelbo(model, loss_args, nll_loss=self.nll_loss, kl_loss=self.kl_loss)
+        return BF.nelbo(model, loss_args, minibatch_ratio, nll_loss=self.nll_loss, kl_loss=self.kl_loss)

@@ -42,12 +42,15 @@ def gaussian_kl_loss(model):
     return kl_sum
 
 
-def nelbo(model, loss_args, nll_loss, kl_loss):
+def nelbo(model, loss_args, minibatch_ratio, nll_loss, kl_loss):
+    """
+    kl divided by number of minibatches
+    """
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
     nelbo = torch.Tensor([0]).to(device)
     # N_data = loss_args[0].shape[0]
     nll = nll_loss(*loss_args)
-    kl = kl_loss(model)
+    kl = kl_loss(model) * minibatch_ratio
     nelbo = nll + kl
 
     return nelbo, nll, kl

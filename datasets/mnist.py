@@ -1,25 +1,29 @@
-import torchvision
+import torchvision.datasets as d
+import torchvision.transforms as t
 import torch
 import matplotlib.pyplot as plt
 
 
-def import_normalised_mnist(batch_size_train, batch_size_test):
+def import_n_mnist(batch_size_train, batch_size_test):
+    """
+    Import MNIST normalised.
+    """
     train_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('', train=True, download=True,
-                                   transform=torchvision.transforms.Compose([
-                                       torchvision.transforms.ToTensor(),
-                                       torchvision.transforms.Normalize(
-                                           (0.1307,), (0.3081,))
-                                   ])),
+        d.MNIST('datasets/', train=True, download=True,
+                transform=t.Compose([
+                    t.ToTensor(),
+                    t.Normalize(
+                        (0.1307,), (0.3081,))
+                ])),
         batch_size=batch_size_train, shuffle=True)
 
     test_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.MNIST('', train=False, download=True,
-                                   transform=torchvision.transforms.Compose([
-                                       torchvision.transforms.ToTensor(),
-                                       torchvision.transforms.Normalize(
-                                           (0.1307,), (0.3081,))
-                                   ])),
+        d.MNIST('datasets/', train=False, download=True,
+                transform=t.Compose([
+                    t.ToTensor(),
+                    t.Normalize(
+                        (0.1307,), (0.3081,))
+                ])),
         batch_size=batch_size_test, shuffle=True)
     return train_loader, test_loader
 

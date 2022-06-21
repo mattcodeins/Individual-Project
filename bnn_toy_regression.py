@@ -9,16 +9,19 @@ from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.utils import to_numpy
 
 
-def train_step(model, opt, nelbo, log_noise_var, dataloader, N_data, device):
+def train_step(model, opt, nelbo, dataloader, log_noise_var, device):
+    tloss, tnll, tkl = 0,0,0
     for _, (x, y) in enumerate(dataloader):
+        minibatch_ratio = x.shape[0] / len(dataloader.dataset)
+        noise_var = torch.exp(log_noise_var)*torch.ones(x.shape[0])
         x = x.to(device); y = y.to(device)
         y_pred = model(x)
-        noise_var = torch.exp(log_noise_var)*torch.ones(N_data)
-        loss, nll, kl = nelbo(model, (y, y_pred, noise_var))
+        loss, nll, kl = nelbo(model, (y_pred, y, noise_var), minibatch_ratio)
         opt.zero_grad()
         loss.backward()
         opt.step()
-    return loss, nll, kl
+        tloss += loss; tnll += nll; tkl += kl
+    return tloss, tnll, tkl
 
 
 def predict(bnn, x_test, K=1):  # Monte Carlo sampling using K samples
@@ -33,7 +36,7 @@ if __name__ == "__main__":
     torch.manual_seed(1)
 
     # create dataset
-    N_data = 100; noise_std = 0.1
+    N_data = 1000; noise_std = 0.1
     dataloader, dataset, x_train, y_train, x_test, y_test = d.create_regression_dataset(N_data, noise_std)
 
     # create bnn
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     params = list(model.parameters()) + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
     # hyper-parameters of training
-    N_epochs = 50000
+    N_epochs = 5000
 
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
     kl_loss = GaussianKLLoss()
@@ -79,7 +82,7 @@ if __name__ == "__main__":
     logs = []
     for i in range(N_epochs):
         loss, nll, kl = train_step(
-            model, opt, nelbo, log_noise_var, dataloader, N_data=len(dataloader.dataset), device=device
+            model, opt, nelbo, dataloader, log_noise_var, device=device
         )
         logs.append([to_numpy(nll), to_numpy(kl), to_numpy(loss), to_numpy(nll)/to_numpy(kl)])
         if (i+1) % 100 == 0:

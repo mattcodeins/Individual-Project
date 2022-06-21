@@ -63,7 +63,7 @@ class regression_data(Dataset):
 def create_regression_dataset(N_data=100, noise_std=0.1):
     x_train, y_train = gen_data(N_data, ground_truth_func, noise_std)
     dataset = regression_data(x_train, y_train)
-    dataloader = DataLoader(dataset, batch_size=N_data, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
 
     # plot the training data and ground truth
     x_test = np.arange(np.min(x_train) - 1.0, np.max(x_train) + 1.0, 0.01)[:, np.newaxis]

@@ -13,6 +13,7 @@ image_shape = info.features["image"].shape
 image_size = tf.reduce_prod(image_shape)
 batch_size = 200
 
+
 def map_fn(input_slice: Dict[str, tf.Tensor]):
     updated = input_slice
     image = to_default_float(updated["image"]) / 255.0
@@ -42,9 +43,11 @@ print(Z.shape)
 
 kernel = gpflow.kernels.SquaredExponential()
 
+
 class MySoftmax(gpflow.likelihoods.Softmax):
     def _log_prob(self, F, Y):
         return -tf.nn.sparse_softmax_cross_entropy_with_logits(logits=F, labels=tf.argmax(Y, axis=1))
+
 
 likelihood = MySoftmax(num_mnist_classes)
 
@@ -112,6 +115,6 @@ for step in range(100_000):
             acc,
             model.kernel.variance.numpy(),
             model.kernel.lengthscales.numpy()
-            )
+        )
         )
 f.close()
