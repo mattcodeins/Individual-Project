@@ -4,7 +4,7 @@ import numpy as np
 # import matplotlib.pyplot as plt
 # import torchvision
 
-from modules.bnn.modules.linear import make_linear_bnn
+from modules.bnn.modules.emp_linear import make_linear_emp_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.utils import to_numpy
 
@@ -14,13 +14,13 @@ import datasets.mnist as d
 def train_step(model, opt, nelbo, dataloader, device):
     tloss, tnll, tkl = 0,0,0
     for _, (x, y) in enumerate(dataloader):
+        opt.zero_grad()
         batch_size = x.shape[0]
         minibatch_ratio = batch_size / len(dataloader.dataset)
         x = x.to(device).reshape((batch_size, 784)); y = y.to(device)
         y_pred = model(x)
         loss, nll, kl = nelbo(model, (y_pred, y), minibatch_ratio)
-        opt.zero_grad()
-        loss.backward()
+        loss.backward(retain_graph=True)
         opt.step()
         tloss += loss; tnll += nll; tkl += kl
     return tloss, tnll, tkl
@@ -49,12 +49,9 @@ if __name__ == "__main__":
     h1_dim, h2_dim = 128, 64
     layer_sizes = [x_dim, h1_dim, h2_dim, y_dim]
     activation = nn.GELU()
-    layer_kwargs = {'prior_weight_std': 1.0,
-                    'prior_bias_std': 1.0,
-                    'sqrt_width_scaling': False,
-                    'init_std': 0.05,
+    layer_kwargs = {'init_std': 0.05,
                     'device': device}
-    model = make_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
+    model = make_linear_emp_bnn(layer_sizes, activation=activation, **layer_kwargs)
     log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
@@ -90,15 +87,9 @@ if __name__ == "__main__":
                 correct, len(test_loader.dataset),
                 100. * correct / len(test_loader.dataset)))
 
-            # lr = optimizer._decayed_lr(tf.float32)
-            # print("Step: {:.0f}, Learning Rate: {:.2e}, ELBO: {:.4e}, Accuracy: {:.4f}%".format(step, lr, elbo, acc))
-            # f.write("{:.0f} {:.4e} {:.4f} {:.4f} {:.4f}\n".format(
-            #     step,
-            #     elbo,
-            #     acc,
-            #     model.kernel.variance.numpy(),
-            #     model.kernel.lengthscales.numpy()
-            # )
-            print("Epoch {}, nll={}, kl={}, nelbo={}, ratio={}"
+            logs.append([to_numpy(nll), to_numpy(kl), to_numpy(loss),
+                         to_numpy(torch.log(1 + torch.exp(model._prior_std)))])
+
+            print("Epoch {}, nll={}, kl={}, nelbo={}, prior_std={}"
                   .format(i+1, logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3]))
     logs = np.array(logs)

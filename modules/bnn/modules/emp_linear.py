@@ -10,7 +10,7 @@ class EmpBayesLinear(nn.Module):
     """Applies a linear transformation to the incoming data: y = xW^T + b, where
        the weight W and bias b are sampled from the approximate q distribSution.
     """
-    def __init__(self, in_features, out_features, prior_std, bias=True,
+    def __init__(self, in_features, out_features, _prior_std, bias=True,
                  init_std=0.05, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(EmpBayesLinear, self).__init__()
@@ -35,11 +35,12 @@ class EmpBayesLinear(nn.Module):
         # prior parameters are registered as constants
         self.register_buffer('prior_weight_mean', torch.full_like(self.weight_mean, prior_mean))
         # self.register_buffer('prior_weight_std', torch.full_like(self._weight_std_param, prior_weight_std))
-        self.prior_weight_std = prior_std
+        self.prior_weight_std = torch.log(1 + torch.exp(_prior_std))
         if self.bias:
             self.register_buffer('prior_bias_mean', torch.full_like(self.bias_mean, prior_mean))
             # self.register_buffer('prior_bias_std', torch.full_like(self._bias_std_param, prior_bias_std))
-            self.prior_bias_std = prior_std
+            self.prior_bias_std = torch.log(1 + torch.exp(_prior_std))
+
         else:
             self.register_buffer('prior_bias_mean', None)
             self.register_buffer('prior_bias_std', None)
@@ -101,13 +102,13 @@ class EmpBayesLinear(nn.Module):
         return F.linear(input, weight, bias)
 
 
-# construct a BNN
+# construct a BNN with learnable prior (std)
 def make_linear_emp_bnn(layer_sizes, activation='LeakyReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
-    net.register_parameter(name='prior_std', param=torch.nn.Parameter(torch.tensor(0.05)))
+    net.register_parameter(name='_prior_std', param=torch.nn.Parameter(torch.tensor(0.5413)))
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net.prior_std, **layer_kwargs))
+        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std, **layer_kwargs))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net
