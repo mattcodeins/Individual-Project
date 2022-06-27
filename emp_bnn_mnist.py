@@ -29,7 +29,7 @@ def train_step(model, opt, nelbo, dataloader, device):
 def predict(model, x_test, K=1):  # Monte Carlo sampling using K samples
     y_pred = []
     for _ in range(K):
-        y_pred.append(model(x_test))
+        y_pred.append(model(x_test.to(device)))
     # shape (K, batch_size, y_dim) or (batch_size, y_dim) if K = 1
     y_pred = torch.stack(y_pred, dim=0).squeeze(0)
     return y_pred.mean(0), y_pred.std(0)
@@ -49,9 +49,7 @@ if __name__ == "__main__":
     h1_dim, h2_dim = 128, 64
     layer_sizes = [x_dim, h1_dim, h2_dim, y_dim]
     activation = nn.GELU()
-    layer_kwargs = {'init_std': 0.05,
-                    'device': device}
-    model = make_linear_emp_bnn(layer_sizes, activation=activation, **layer_kwargs)
+    model = make_linear_emp_bnn(layer_sizes, activation=activation, device=device)
     log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
@@ -82,7 +80,7 @@ if __name__ == "__main__":
                 for x_test, y_test in test_loader:
                     m, v = predict(model, x_test.reshape((-1,784)), K=50)
                     pred = m.max(1, keepdim=True)[1]
-                    correct += pred.eq(y_test.view_as(pred)).sum()
+                    correct += pred.eq(y_test.to(device).view_as(pred)).sum()
             print('\nTest set: Accuracy: {}/{} ({:.0f}%)\n'.format(
                 correct, len(test_loader.dataset),
                 100. * correct / len(test_loader.dataset)))

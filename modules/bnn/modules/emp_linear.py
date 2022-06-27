@@ -103,12 +103,12 @@ class EmpBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_emp_bnn(layer_sizes, activation='LeakyReLU', **layer_kwargs):
+def make_linear_emp_bnn(layer_sizes, device, activation='LeakyReLU'):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
-    net.register_parameter(name='_prior_std', param=torch.nn.Parameter(torch.tensor(0.5413)))
+    net.register_parameter(name='_prior_std', param=nn.Parameter(torch.tensor(0.5413, device=device)))
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std, **layer_kwargs))
+        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std, device=device))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net
