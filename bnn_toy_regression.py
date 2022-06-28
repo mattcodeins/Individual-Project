@@ -36,7 +36,7 @@ if __name__ == "__main__":
     torch.manual_seed(1)
 
     # create dataset
-    N_data = 1000; noise_std = 0.1
+    N_data = 100; noise_std = 0.1
     dataloader, dataset, x_train, y_train, x_test, y_test = d.create_regression_dataset(N_data, noise_std)
 
     # create bnn
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     params = list(model.parameters()) + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
     # hyper-parameters of training
-    N_epochs = 5000
+    N_epochs = 500
 
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
     kl_loss = GaussianKLLoss()

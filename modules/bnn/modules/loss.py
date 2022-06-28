@@ -1,7 +1,7 @@
 # import warnings
 
 from torch.nn import Module
-from torch.nn import functional as F
+# from torch.nn import functional as F
 # from torch.nn import _reduction as _Reduction
 
 import modules.bnn.functional as BF

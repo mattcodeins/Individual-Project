@@ -9,16 +9,19 @@ from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.utils import to_numpy
 
 
-def train_step(model, opt, nelbo, log_noise_var, dataloader, N_data, device):
+def train_step(model, opt, nelbo, dataloader, log_noise_var, device):
+    tloss, tnll, tkl = 0,0,0
     for _, (x, y) in enumerate(dataloader):
+        minibatch_ratio = x.shape[0] / len(dataloader.dataset)
+        noise_var = torch.exp(log_noise_var)*torch.ones(x.shape[0])
         x = x.to(device); y = y.to(device)
         y_pred = model(x)
-        noise_var = torch.exp(log_noise_var)*torch.ones(N_data)
-        loss, nll, kl = nelbo(model, (y, y_pred, noise_var))
+        loss, nll, kl = nelbo(model, (y_pred, y, noise_var), minibatch_ratio)
         opt.zero_grad()
-        loss.backward()
+        loss.backward(retain_graph=True)
         opt.step()
-    return loss, nll, kl
+        tloss += loss; tnll += nll; tkl += kl
+    return tloss, tnll, tkl
 
 
 def predict(bnn, x_test, K=1):  # Monte Carlo sampling using K samples
@@ -75,9 +78,9 @@ if __name__ == "__main__":
     logs = []
     for i in range(N_epochs):
         loss, nll, kl = train_step(
-            model, opt, nelbo, log_noise_var, dataloader, N_data=len(dataloader.dataset), device=device
+            model, opt, nelbo, dataloader, log_noise_var, device=device
         )
-        logs.append([to_numpy(nll), to_numpy(kl), to_numpy(loss), to_numpy(model.prior_std)])
+        logs.append([to_numpy(nll), to_numpy(kl), to_numpy(loss), to_numpy(model._prior_std)])
         if (i+1) % 100 == 0:
             print("Epoch {}, nll={}, kl={}, nelbo={}, prior_std={}"
                   .format(i+1, logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3]))
