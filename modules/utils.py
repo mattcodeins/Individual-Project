@@ -2,9 +2,12 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import csv
-import torch.nn as nn
-import torchviz as tv
-import os
+# import torch.nn as nn
+# import torchviz as tv
+
+from modules.bnn.modules.linear import BayesLinear
+from modules.bnn.modules.emp_linear import EmpBayesLinear
+from modules.bnn.modules.ext_emp_linear import ExtEmpBayesLinear
 
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -20,12 +23,23 @@ def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, filena
     for i in range(N_epochs):
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, device)
-        prior_std = np.log(1 + np.exp(to_numpy(model._prior_std).mean()))
-        train_logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(kl), prior_std])
-
-        print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}".format(
-            train_logs[-1][0], train_logs[-1][1], train_logs[-1][2], train_logs[-1][3], train_logs[-1][4]
-        ))
+        # logging depends on learnable parameter (this is not an eloquent solution)
+        first_layer = list(model.modules())[1]
+        if isinstance(first_layer, (BayesLinear)):
+            pass
+        elif isinstance(first_layer, (EmpBayesLinear)):
+            prior_std = np.log(1 + np.exp(to_numpy(model._prior_std_param)))
+            train_logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(kl), prior_std])
+            print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}".format(
+                train_logs[-1][0], train_logs[-1][1], train_logs[-1][2], train_logs[-1][3], train_logs[-1][4]
+            ))
+        elif isinstance(first_layer, (ExtEmpBayesLinear)):
+            train_logs.append([i+1, to_numpy(loss), to_numpy(nll),
+                               to_numpy(kl), to_numpy(model.prior_mean), to_numpy(first_layer.prior_weight_std)])
+            print("Epoch {}, nelbo={}, nll={}, kl={}, prior_mean={}, prior_std (1st layer)={}".format(
+                train_logs[-1][0], train_logs[-1][1], train_logs[-1][2],
+                train_logs[-1][3], train_logs[-1][4], train_logs[-1][5]
+            ))
 
         if (i+1) % 10 == 0:
             torch.save(model.state_dict(), f'./saved_models/{filename}')

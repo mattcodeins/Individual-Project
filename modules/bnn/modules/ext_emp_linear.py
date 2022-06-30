@@ -3,18 +3,17 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as dist
 
 
-class EmpBayesLinear(nn.Module):
+class ExtEmpBayesLinear(nn.Module):
     """
-    Learnable single prior std shared by all weights and biases.
-    Prior mean is zero for all weights and biases.
+    Learnable mean prior shared by all weights and biases.
+    Learnable std prior shared by weights and biases in one layer.
     """
-    def __init__(self, in_features, out_features, _prior_std_param, bias=True,
+    def __init__(self, in_features, out_features, prior_mean, bias=True,
                  init_std=0.05, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
-        super(EmpBayesLinear, self).__init__()
+        super(ExtEmpBayesLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
 
@@ -32,12 +31,13 @@ class EmpBayesLinear(nn.Module):
         self.reset_parameters(init_std)
 
         # prior parameters (Gaussian)
-        prior_mean = 0.0
-        self.register_buffer('prior_weight_mean', torch.full_like(self.weight_mean, prior_mean))
-        self.prior_weight_std = torch.log(1 + torch.exp(_prior_std_param))
+        # MEAN SAME FOR ALL, STD LEARNABLE PER LAYER AND BIAS/MEAN
+        self.prior_weight_mean = prior_mean
+        self._prior_weight_std_param = nn.Parameter(torch.tensor(0.5413, **factory_kwargs))
+
         if self.bias:
-            self.register_buffer('prior_bias_mean', torch.full_like(self.bias_mean, prior_mean))
-            self.prior_bias_std = torch.log(1 + torch.exp(_prior_std_param))
+            self.prior_bias_mean = prior_mean
+            self._prior_bias_std_param = nn.Parameter(torch.tensor(0.5413, **factory_kwargs))
 
         else:
             self.register_buffer('prior_bias_mean', None)
@@ -73,6 +73,14 @@ class EmpBayesLinear(nn.Module):
     def bias_std(self):
         return torch.log(1 + torch.exp(self._bias_std_param))
 
+    @property
+    def prior_weight_std(self):
+        return torch.log(1 + torch.exp(self._prior_weight_std_param))
+
+    @property
+    def prior_bias_std(self):
+        return torch.log(1 + torch.exp(self._prior_bias_std_param))
+
     # forward pass using reparam trick
     def forward(self, input):
         weight = self.weight_mean + self.weight_std * torch.randn_like(self.weight_std)
@@ -84,12 +92,12 @@ class EmpBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_emp_bnn(layer_sizes, device, activation='LeakyReLU'):
+def make_linear_ext_emp_bnn(layer_sizes, device, activation='LeakyReLU'):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
-    net.register_parameter(name='_prior_std_param', param=nn.Parameter(torch.tensor(0.5413, device=device)))  # 0.5413
+    net.register_parameter(name='prior_mean', param=nn.Parameter(torch.tensor(0.0, device=device)))  # 0.5413
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, device=device))
+        net.add_module(f'ExtEmpBayesLinear{i}', ExtEmpBayesLinear(dim_in, dim_out, net.prior_mean, device=device))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net

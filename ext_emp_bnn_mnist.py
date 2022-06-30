@@ -4,7 +4,7 @@ import torch.nn as nn
 # import matplotlib.pyplot as plt
 # import torchvision
 
-from modules.bnn.modules.emp_linear import make_linear_emp_bnn
+from modules.bnn.modules.ext_emp_linear import make_linear_ext_emp_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.utils import *
 
@@ -12,7 +12,7 @@ import datasets.mnist as d
 
 
 torch.manual_seed(1)
-experiment_name = 'mnist_emp_bnn_singlestdprior_29-06'
+experiment_name = 'mnist_emp_bnn_multiprior'
 
 # create dataset
 batch_size_train = 64
@@ -25,12 +25,12 @@ x_dim, y_dim = 784, 10
 h1_dim, h2_dim = 128, 64
 layer_sizes = [x_dim, h1_dim, h2_dim, y_dim]
 activation = nn.GELU()
-model = make_linear_emp_bnn(layer_sizes, activation=activation, device=device)
+model = make_linear_ext_emp_bnn(layer_sizes, activation=activation, device=device)
 print("BNN architecture: \n", model)
 
 # training hyperparameters
 learning_rate = 1e-4
-params = list(model.parameters())  # + [log_noise_var]
+params = list(model.parameters())
 opt = torch.optim.Adam(params, lr=learning_rate)
 N_epochs = 2000
 

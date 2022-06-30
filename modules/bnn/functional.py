@@ -1,29 +1,24 @@
 import torch
 
+from modules.bnn.modules.linear import BayesLinear
 from modules.bnn.modules.emp_linear import EmpBayesLinear
+from modules.bnn.modules.ext_emp_linear import ExtEmpBayesLinear
 
-from .modules.linear import BayesLinear
 
-
-def _gaussian_kl(mean_1, std_1, mean_2, std_2):
+def _gaussian_kl(mean_q, std_q, mean_p, std_p):
     """
-    KL divergence between Gaussian distribtuions.
-
-    Arguments:
-        mu_0 (tensor) : mean of normal distribution.
-        log_sigma_0 (tensor): log(standard deviation of normal distribution).
-        mu_1 (tensor): mean of normal distribution.
-        log_sigma_1 (tensor): log(standard deviation of normal distribution).
+    KL divergence between diagonal Gaussian distribtuions.
+    (We can simply calculate the sum of the kl between independent single variate gaussians)
     """
-    kl = (-0.5 + torch.log(std_2) - torch.log(std_1) +
-          (torch.pow(std_1, 2) + torch.pow(mean_1-mean_2, 2)) /
-          (2*torch.pow(std_2, 2)))
+    kl = (-0.5 + torch.log(std_p) - torch.log(std_q) +
+          (torch.pow(std_q, 2) + torch.pow(mean_q-mean_p, 2)) /
+          (2*torch.pow(std_p, 2)))
     return kl.sum()
 
 
 def gaussian_kl_loss(model):
     """
-    KL divergence between approximate posterior and prior, assuming both are Gaussian, of all layers in the model.
+    KL divergence between approximate posterior and prior, assuming both are diagonal Gaussian.
     This is the closed form complexity cost in Weight Uncertainty in Neural Networks.
     """
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
@@ -31,7 +26,7 @@ def gaussian_kl_loss(model):
     kl_sum = torch.Tensor([0]).to(device)
 
     for m in model.modules():
-        if isinstance(m, (BayesLinear)) or isinstance(m, (EmpBayesLinear)):
+        if isinstance(m, (BayesLinear)) or isinstance(m, (EmpBayesLinear)) or isinstance(m, (ExtEmpBayesLinear)):
             kl = _gaussian_kl(m.weight_mean, m.weight_std, m.prior_weight_mean, m.prior_weight_std)
             kl_sum += kl
 
@@ -48,7 +43,6 @@ def nelbo(model, loss_args, minibatch_ratio, nll_loss, kl_loss):
     """
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
     nelbo = torch.Tensor([0]).to(device)
-    # N_data = loss_args[0].shape[0]
     nll = nll_loss(*loss_args)
     kl = kl_loss(model) * minibatch_ratio
     nelbo = nll + kl
