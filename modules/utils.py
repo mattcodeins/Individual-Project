@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import csv
+import os
 # import torch.nn as nn
 # import torchviz as tv
 
@@ -19,7 +20,7 @@ def to_numpy(x):
 
 def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, filename, device=device):
     model.train()
-    train_logs = []
+    logs = []
     for i in range(N_epochs):
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, device)
@@ -29,20 +30,21 @@ def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, filena
             pass
         elif isinstance(first_layer, (EmpBayesLinear)):
             prior_std = np.log(1 + np.exp(to_numpy(model._prior_std_param)))
-            train_logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(kl), prior_std])
+            logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(kl), prior_std])
             print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}".format(
-                train_logs[-1][0], train_logs[-1][1], train_logs[-1][2], train_logs[-1][3], train_logs[-1][4]
+                logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4]
             ))
         elif isinstance(first_layer, (ExtEmpBayesLinear)):
-            train_logs.append([i+1, to_numpy(loss), to_numpy(nll),
-                               to_numpy(kl), to_numpy(model.prior_mean), to_numpy(first_layer.prior_weight_std)])
-            print("Epoch {}, nelbo={}, nll={}, kl={}, prior_mean={}, prior_std (1st layer)={}".format(
-                train_logs[-1][0], train_logs[-1][1], train_logs[-1][2],
-                train_logs[-1][3], train_logs[-1][4], train_logs[-1][5]
+            fl_prior_avg_std = (to_numpy(first_layer.prior_weight_std) + to_numpy(first_layer.prior_bias_std))/2
+            logs.append([i+1, to_numpy(loss), to_numpy(nll),
+                         to_numpy(kl), to_numpy(model.prior_mean), fl_prior_avg_std])
+            print("Epoch {}, nelbo={}, nll={}, kl={}, prior_mean={}, avg prior_std (1st layer)={}".format(
+                logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5]
             ))
 
-        if (i+1) % 10 == 0:
+        if (i+1) % 1 == 0:
             torch.save(model.state_dict(), f'./saved_models/{filename}')
+            write_logs_to_file(logs, filename)
             model.eval()
             correct = 0
             with torch.no_grad():
@@ -56,8 +58,8 @@ def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, filena
                 correct, len(test_loader.dataset), test_acc
             ))
 
-    train_logs = np.array(train_logs)
-    return train_logs
+    logs = np.array(logs)
+    return logs
 
 
 def train_step(model, opt, nelbo, dataloader, device=device):
@@ -112,3 +114,11 @@ def write_logs_to_file(logs, name):
         writer.writerow(['epoch', 'elbo', 'nll', 'kl', 'prior_std'])
         writer.writerows(logs)
         f.close()
+
+
+def uniquify(name):
+    counter = 1
+    while os.path.exists("results/" + name + ".csv"):
+        name = name + "_" + str(counter)
+        counter += 1
+    return name

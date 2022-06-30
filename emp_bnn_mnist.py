@@ -12,7 +12,7 @@ import datasets.mnist as d
 
 
 torch.manual_seed(1)
-experiment_name = 'mnist_emp_bnn_singlestdprior_29-06'
+experiment_name = 'mnist_emp_bnn_singlestdprior_init_as_prior'
 
 # create dataset
 batch_size_train = 64

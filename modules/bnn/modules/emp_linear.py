@@ -3,7 +3,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as dist
 
 
 class EmpBayesLinear(nn.Module):
@@ -12,7 +11,7 @@ class EmpBayesLinear(nn.Module):
     Prior mean is zero for all weights and biases.
     """
     def __init__(self, in_features, out_features, _prior_std_param, bias=True,
-                 init_std=0.05, device=None, dtype=None):
+                 init_std=1, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(EmpBayesLinear, self).__init__()
         self.in_features = in_features

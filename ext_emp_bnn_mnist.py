@@ -12,7 +12,7 @@ import datasets.mnist as d
 
 
 torch.manual_seed(1)
-experiment_name = 'mnist_emp_bnn_multiprior'
+experiment_name = uniquify('mnist_emp_bnn_multiprior_initprior')
 
 # create dataset
 batch_size_train = 64
@@ -25,7 +25,7 @@ x_dim, y_dim = 784, 10
 h1_dim, h2_dim = 128, 64
 layer_sizes = [x_dim, h1_dim, h2_dim, y_dim]
 activation = nn.GELU()
-model = make_linear_ext_emp_bnn(layer_sizes, activation=activation, device=device)
+model = make_linear_ext_emp_bnn(layer_sizes, activation=activation, device=device, init_std=1.0)
 print("BNN architecture: \n", model)
 
 # training hyperparameters
@@ -39,7 +39,8 @@ cross_entropy_loss = nn.CrossEntropyLoss(reduction='sum')
 kl_loss = GaussianKLLoss()
 nelbo = nELBO(nll_loss=cross_entropy_loss, kl_loss=kl_loss)
 
-train_logs = training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, experiment_name)
+print(f"kl before training: {kl_loss(model)}")  # should be approx. 273,465 for MNIST (109,386 params)
+logs = training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, experiment_name)
 
-plot_training_loss(train_logs)
-write_logs_to_file(train_logs, experiment_name)
+plot_training_loss(logs)
+write_logs_to_file(logs, experiment_name)

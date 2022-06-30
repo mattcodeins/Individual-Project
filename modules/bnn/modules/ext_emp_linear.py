@@ -92,12 +92,14 @@ class ExtEmpBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_ext_emp_bnn(layer_sizes, device, activation='LeakyReLU'):
+def make_linear_ext_emp_bnn(layer_sizes, device, activation='LeakyReLU', init_std=0.05):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
     net.register_parameter(name='prior_mean', param=nn.Parameter(torch.tensor(0.0, device=device)))  # 0.5413
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'ExtEmpBayesLinear{i}', ExtEmpBayesLinear(dim_in, dim_out, net.prior_mean, device=device))
+        net.add_module(f'ExtEmpBayesLinear{i}', ExtEmpBayesLinear(
+            dim_in, dim_out, net.prior_mean, init_std=init_std, device=device
+        ))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net

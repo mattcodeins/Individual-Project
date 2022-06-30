@@ -24,16 +24,13 @@ def gaussian_kl_loss(model):
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
     kl = torch.Tensor([0]).to(device)
     kl_sum = torch.Tensor([0]).to(device)
-
     for m in model.modules():
         if isinstance(m, (BayesLinear)) or isinstance(m, (EmpBayesLinear)) or isinstance(m, (ExtEmpBayesLinear)):
             kl = _gaussian_kl(m.weight_mean, m.weight_std, m.prior_weight_mean, m.prior_weight_std)
             kl_sum += kl
-
             if m.bias:
                 kl = _gaussian_kl(m.bias_mean, m.bias_std, m.prior_bias_mean, m.prior_bias_std)
                 kl_sum += kl
-
     return kl_sum
 
 
