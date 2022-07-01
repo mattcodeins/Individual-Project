@@ -28,7 +28,7 @@ x_dim, y_dim = 784, 10
 h1_dim, h2_dim = 128, 64
 layer_sizes = [x_dim, h1_dim, h2_dim, y_dim]
 activation = nn.GELU()
-model = make_linear_ext_emp_bnn(layer_sizes, activation=activation, device=device, init_std=1.0)
+model = make_linear_ext_emp_bnn(layer_sizes, activation=activation, device=device)
 print("BNN architecture: \n", model)
 
 # training hyperparameters
