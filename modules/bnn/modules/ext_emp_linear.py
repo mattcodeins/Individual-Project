@@ -33,11 +33,12 @@ class ExtEmpBayesLinear(nn.Module):
         # prior parameters (Gaussian)
         # MEAN SAME FOR ALL, STD LEARNABLE PER LAYER AND BIAS/MEAN
         self.prior_weight_mean = prior_mean
-        self._prior_weight_std_param = nn.Parameter(torch.tensor(0.5413, **factory_kwargs))
+        init_prior_std = np.log(np.exp(init_std) - 1)
+        self._prior_weight_std_param = nn.Parameter(torch.tensor(init_prior_std, **factory_kwargs))
 
         if self.bias:
             self.prior_bias_mean = prior_mean
-            self._prior_bias_std_param = nn.Parameter(torch.tensor(0.5413, **factory_kwargs))
+            self._prior_bias_std_param = nn.Parameter(torch.tensor(init_prior_std, **factory_kwargs))
 
         else:
             self.register_buffer('prior_bias_mean', None)

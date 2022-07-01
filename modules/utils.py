@@ -42,7 +42,7 @@ def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, filena
                 logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5]
             ))
 
-        if (i+1) % 1 == 0:
+        if (i+1) % 10 == 0:
             torch.save(model.state_dict(), f'./saved_models/{filename}')
             write_logs_to_file(logs, filename)
             model.eval()
@@ -72,7 +72,7 @@ def train_step(model, opt, nelbo, dataloader, device=device):
         y = y.to(device)
         y_pred = model(x)
         loss, nll, kl = nelbo(model, (y_pred, y), minibatch_ratio)
-        loss.backward(retain_graph=True)
+        loss.backward()
         opt.step()
         tloss += loss; tnll += nll; tkl += kl
         # g = tv.make_dot(loss, params=dict(model.named_parameters()))
