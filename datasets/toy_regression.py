@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
-from modules.utils import to_numpy
+from modules.bnn.utils import to_numpy
 
 
 def ground_truth_func(x):

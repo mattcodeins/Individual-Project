@@ -6,7 +6,7 @@ import numpy as np
 
 from modules.bnn.modules.linear import make_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
-from modules.utils import to_numpy
+from modules.bnn.utils import to_numpy
 
 import datasets.mnist as d
 

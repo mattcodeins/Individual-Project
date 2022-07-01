@@ -6,9 +6,12 @@ import torch.nn as nn
 
 from modules.bnn.modules.ext_emp_linear import make_linear_ext_emp_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
-from modules.utils import *
+from modules.bnn.utils import *
 
 import datasets.mnist as d
+
+
+TRAINING = False
 
 
 torch.manual_seed(1)
@@ -39,8 +42,13 @@ cross_entropy_loss = nn.CrossEntropyLoss(reduction='sum')
 kl_loss = GaussianKLLoss()
 nelbo = nELBO(nll_loss=cross_entropy_loss, kl_loss=kl_loss)
 
-print(f"kl before training: {kl_loss(model)}")  # should be approx. 273,465 for MNIST (109,386 params)
-logs = training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, experiment_name)
+if TRAINING:
+    print(f"kl before training: {kl_loss(model)}")  # should be approx. 273,465 for MNIST (109,386 params)
+    logs = training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, experiment_name)
 
-plot_training_loss(logs)
-write_logs_to_file(logs, experiment_name)
+    plot_training_loss(logs)
+    write_logs_to_file(logs, experiment_name)
+
+else:
+    model = load_model(model, experiment_name)
+    test_step(model, nelbo, test_loader, predict=predict_wo_var, device=device)

@@ -82,12 +82,19 @@ class ExtEmpBayesLinear(nn.Module):
         return torch.log(1 + torch.exp(self._prior_bias_std_param))
 
     # forward pass using reparam trick
-    def forward(self, input):
-        weight = self.weight_mean + self.weight_std * torch.randn_like(self.weight_std)
-        if self.bias:
-            bias = self.bias_mean + self.bias_std * torch.randn_like(self.bias_std)
+    def forward(self, input, variance=True):
+        if variance:
+            weight = self.weight_mean + self.weight_std * torch.randn_like(self.weight_std)
+            if self.bias:
+                bias = self.bias_mean + self.bias_std * torch.randn_like(self.bias_std)
+            else:
+                bias = None
         else:
-            bias = None
+            weight = self.weight_mean
+            if self.bias:
+                bias = self.bias_mean
+            else:
+                bias = None
         return F.linear(input, weight, bias)
 
 

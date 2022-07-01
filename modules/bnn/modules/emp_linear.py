@@ -11,7 +11,7 @@ class EmpBayesLinear(nn.Module):
     Prior mean is zero for all weights and biases.
     """
     def __init__(self, in_features, out_features, _prior_std_param, bias=True,
-                 init_std=1, device=None, dtype=None):
+                 init_std=0.05, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(EmpBayesLinear, self).__init__()
         self.in_features = in_features
@@ -33,11 +33,10 @@ class EmpBayesLinear(nn.Module):
         # prior parameters (Gaussian)
         prior_mean = 0.0
         self.register_buffer('prior_weight_mean', torch.full_like(self.weight_mean, prior_mean))
-        self.prior_weight_std = torch.log(1 + torch.exp(_prior_std_param))
+        self._prior_weight_std_param = _prior_std_param
         if self.bias:
             self.register_buffer('prior_bias_mean', torch.full_like(self.bias_mean, prior_mean))
-            self.prior_bias_std = torch.log(1 + torch.exp(_prior_std_param))
-
+            self._prior_bias_std_param = _prior_std_param
         else:
             self.register_buffer('prior_bias_mean', None)
             self.register_buffer('prior_bias_std', None)
@@ -71,6 +70,14 @@ class EmpBayesLinear(nn.Module):
     @property
     def bias_std(self):
         return torch.log(1 + torch.exp(self._bias_std_param))
+
+    @property
+    def prior_weight_std(self):
+        return torch.log(1 + torch.exp(self._prior_weight_std_param))
+
+    @property
+    def prior_bias_std(self):
+        return torch.log(1 + torch.exp(self._prior_bias_std_param))
 
     # forward pass using reparam trick
     def forward(self, input):

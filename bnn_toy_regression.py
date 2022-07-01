@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import datasets.toy_regression as d
 from modules.bnn.modules.linear import make_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
-from modules.utils import to_numpy
+from modules.bnn.utils import to_numpy
 
 
 def train_step(model, opt, nelbo, dataloader, log_noise_var, device):
