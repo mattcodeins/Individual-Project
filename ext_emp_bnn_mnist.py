@@ -14,8 +14,9 @@ import datasets.mnist as d
 TRAINING = False
 
 
-torch.manual_seed(1)
-experiment_name = uniquify('mnist_emp_bnn_multiprior_initprior')
+experiment_name = 'mnist_emp_bnn_singlestdprior_28-06'
+if TRAINING:
+    experiment_name = uniquify(experiment_name)
 
 # create dataset
 batch_size_train = 64
@@ -51,4 +52,4 @@ if TRAINING:
 
 else:
     model = load_model(model, experiment_name)
-    test_step(model, nelbo, test_loader, predict=predict_wo_var, device=device)
+    test_step(model, nelbo, test_loader, predict=predict, device=device)

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import datasets.toy_regression as d
-from modules.bnn.modules.linear import make_linear_bnn
+from modules.bnn.modules.marglikgrad_linear import make_mlg_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import to_numpy
 
@@ -29,8 +29,7 @@ def predict(bnn, x_test, K=1):  # Monte Carlo sampling using K samples
     for _ in range(K):
         y_pred.append(bnn(x_test))
     # shape (K, batch_size, y_dim) or (batch_size, y_dim) if K = 1
-    y_pred = torch.stack(y_pred, dim=0).squeeze(0)
-    return y_pred.mean(0), y_pred.std(0)
+    return torch.stack(y_pred, dim=0).squeeze(0)
 
 
 if __name__ == "__main__":
@@ -38,7 +37,7 @@ if __name__ == "__main__":
 
     # create dataset
     N_data = 100; noise_std = 0.1
-    train_loader, test_loader, train_data, test_data = d.create_regression_dataset(N_data, noise_std)
+    dataloader, dataset, x_train, y_train, x_test, y_test = d.create_regression_dataset(N_data, noise_std)
 
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -51,7 +50,7 @@ if __name__ == "__main__":
                     'sqrt_width_scaling': False,
                     'init_std': 0.05,
                     'device': device}
-    model = make_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
+    model = make_mlg_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
     log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
