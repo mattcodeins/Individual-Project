@@ -14,7 +14,7 @@ import datasets.mnist as d
 TRAINING = False
 
 
-experiment_name = 'mnist_emp_bnn_singlestdprior_28-06'
+experiment_name = 'mnist_emp_bnn_multiprior_initprior0.05'
 if TRAINING:
     experiment_name = uniquify(experiment_name)
 

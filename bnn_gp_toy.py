@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import datasets.toy_regression as d
 from modules.bnn.modules.linear import make_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
-from modules.bnn.utils import to_numpy
+from modules.bnn.utils import *
 
 
 def train_step(model, opt, nelbo, dataloader, log_noise_var, device):
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    x_dim, y_dim = x_train.shape[1], y_train.shape[1]
+    x_dim, y_dim = train_data.x.shape[1], train_data.y.shape[1]
     h_dim = 50
     layer_sizes = [x_dim, h_dim, h_dim, y_dim]
     activation = nn.GELU()
@@ -55,17 +55,19 @@ if __name__ == "__main__":
     log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
-    # plot the BNN prior in function space
-    K = 50  # number of Monte Carlos samples used in test time
-    x_test_norm = d.normalise_data(x_test, dataset.x_mean, dataset.x_std)
-    x_test_norm = torch.tensor(x_test_norm, ).float().to(device)
+    d.plot_bnn_prior(model, predict, train_data, test_data, log_noise_var, noise_std, device)
 
-    y_pred_mean, y_pred_std_noiseless = d.get_regression_results(model, x_test_norm, K, predict, dataset)
-    model_noise_std = d.unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, dataset.y_std)
-    y_pred_std = np.sqrt(y_pred_std_noiseless ** 2 + model_noise_std ** 2)
-    d.plot_regression(x_train, y_train, x_test, y_test, y_pred_mean, y_pred_std_noiseless, y_pred_std,
-                      title='BNN init (before training, MFVI)')
-    print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
+    # # plot the BNN prior in function space
+    # K = 50  # number of Monte Carlos samples used in test time
+    # x_test_norm = d.normalise_data(test_data.x, train_data.x_mean, train_data.x_std)
+    # x_test_norm = torch.tensor(x_test_norm, ).float().to(device)
+
+    # y_pred_mean, y_pred_std_noiseless = d.get_regression_results(model, x_test_norm, K, predict, train_data)
+    # model_noise_std = d.unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, train_data.y_std)
+    # y_pred_std = np.sqrt(y_pred_std_noiseless ** 2 + model_noise_std ** 2)
+    # d.plot_regression(train_data.x, train_data.y, test_data.x, test_data.y, y_pred_mean, y_pred_std_noiseless, y_pred_std,
+    #                   title='BNN init (before training, MFVI)')
+    # print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
 
     # training hyperparameters
     learning_rate = 1e-4
