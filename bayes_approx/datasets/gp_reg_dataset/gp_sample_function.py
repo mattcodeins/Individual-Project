@@ -4,14 +4,14 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from gpflow.utilities import print_summary
 
+np.random.seed(1)
+tf.random.set_seed(1)
 
-data = np.genfromtxt('datasets/gp_reg_dataset/points.csv', delimiter=',')
-
+data = np.genfromtxt('bayes_approx/datasets/gp_reg_dataset/points.csv', delimiter=',')
 
 X = data[:, 0].reshape(-1, 1)
 Y = data[:, 1].reshape(-1, 1)
 Y = (Y - Y.mean()) / Y.std()
-
 
 k = gpflow.kernels.Matern52()
 print_summary(k)
@@ -31,8 +31,9 @@ print_summary(m)
 xx = np.linspace(0, 1, 1000).reshape(1000, 1)  # test points must be of shape (N, D)
 
 # generate 1 sample from posterior in linspace for testing
-tf.random.set_seed(1)  # for reproducibility
-sample = m.predict_f_samples(xx, 1)[0,:,0]  # shape (10, 100, 1)
+sample = m.predict_f_samples(xx, 1)[0,:,0]  # shape (1000,)
+
+print(sample.numpy().mean(0))
 
 plt.scatter(xx, sample, marker='x')
 
@@ -47,8 +48,10 @@ if noise_std is not None and noise_std > 1e-6:
     # assume homogeneous noise setting, i.e., "homoscedasticity"
     sample2 += np.random.randn(sample2.shape[0]) * noise_std
 
+print(sample2.mean(0))
 plt.scatter(xt, sample2)
 plt.show()
 
-np.savetxt('datasets/gp_reg_dataset/sample_function.csv', np.dstack((xx[:,0], sample))[0], delimiter=',')
-np.savetxt('datasets/gp_reg_dataset/training_sample_points.csv', np.dstack((xt[:,0], sample2))[0], delimiter=',')
+path = 'bayes_approx/datasets/gp_reg_dataset/'
+np.savetxt(path + 'sample_function.csv', np.dstack((xx[:,0], sample))[0], delimiter=',')
+np.savetxt(path + 'training_sample_points.csv', np.dstack((xt[:,0], sample2))[0], delimiter=',')
