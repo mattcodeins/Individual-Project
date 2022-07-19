@@ -3,7 +3,15 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 
-import datasets.gp_regression as d
+import os
+import sys
+import inspect
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+
+from datasets.gp_reg_dataset import gp_regression as d
 from modules.bnn.modules.linear import make_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import *
@@ -36,16 +44,20 @@ def predict(bnn, x_test, K=1):  # Monte Carlo sampling using K samples
 if __name__ == "__main__":
     torch.manual_seed(1)
 
-    # create dataset
-    N_data = 100; noise_std = 0.1
-    train_loader, test_loader, train_data, test_data = d.create_regression_dataset(N_data, noise_std)
+    # import dataset
+    train, test = d.import_train_test()
+
+    X = train[:,0].reshape(-1, 1)
+    Y = train[:,1].reshape(-1, 1)
+    X_test = test[:,0].reshape(-1, 1)
+    Y_test = test[:,1].reshape(-1, 1)
 
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    x_dim, y_dim = train_data.x.shape[1], train_data.y.shape[1]
-    h_dim = 50
-    layer_sizes = [x_dim, h_dim, h_dim, y_dim]
-    activation = nn.GELU()
+    x_dim, y_dim = X.shape[1], Y.shape[1]
+    h_dim = 100
+    layer_sizes = [x_dim, h_dim, y_dim]
+    activation = nn.ReLU()
     layer_kwargs = {'prior_weight_std': 1.0,
                     'prior_bias_std': 1.0,
                     'sqrt_width_scaling': False,
@@ -55,19 +67,9 @@ if __name__ == "__main__":
     log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
-    d.plot_bnn_prior(model, predict, train_data, test_data, log_noise_var, noise_std, device)
+    d.plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_std,
+                         'BNN init (before training, MFVI)', device)
 
-    # # plot the BNN prior in function space
-    # K = 50  # number of Monte Carlos samples used in test time
-    # x_test_norm = d.normalise_data(test_data.x, train_data.x_mean, train_data.x_std)
-    # x_test_norm = torch.tensor(x_test_norm, ).float().to(device)
-
-    # y_pred_mean, y_pred_std_noiseless = d.get_regression_results(model, x_test_norm, K, predict, train_data)
-    # model_noise_std = d.unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, train_data.y_std)
-    # y_pred_std = np.sqrt(y_pred_std_noiseless ** 2 + model_noise_std ** 2)
-    # d.plot_regression(train_data.x, train_data.y, test_data.x, test_data.y, y_pred_mean, y_pred_std_noiseless, y_pred_std,
-    #                   title='BNN init (before training, MFVI)')
-    # print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
 
     # training hyperparameters
     learning_rate = 1e-4

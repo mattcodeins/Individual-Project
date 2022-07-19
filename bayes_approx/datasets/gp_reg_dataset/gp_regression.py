@@ -1,36 +1,7 @@
 import numpy as np
-import math
 import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
-
-
-def to_numpy(x):
-    return x.detach().cpu().numpy()  # convert a torch tensor to a numpy array
-
-
-def ground_truth_func(x):
-    return np.sin(x * math.pi / 2 + 0.8) * np.exp(-0.1 * np.abs(x)) + 0.1 * x
-
-
-def gen_data(N_data, ground_truth_func, noise_std=None):
-    # generate the training dataset, note here we will make data into 2 clusters
-    x1 = np.random.randn(int(N_data/2), 1) * 0.5 + 2.0
-    x2 = np.random.randn(int(N_data/2), 1) * 0.5 - 2.0
-    x = np.concatenate([x1, x2], axis=0)
-    y = ground_truth_func(x)
-    if noise_std is not None and noise_std > 1e-6:
-        # assume homogeneous noise setting, i.e., "homoscedasticity"
-        y += np.random.randn(y.shape[0], y.shape[1]) * noise_std
-    return x, y
-
-
-def normalise_data(x, mean, std):
-    return (x - mean) / std
-
-
-def unnormalise_data(x, mean, std):
-    return x * std + mean
 
 
 class regression_data(Dataset):
@@ -62,16 +33,37 @@ class regression_data(Dataset):
             self.y = normalise_data(self.y, self.y_mean, self.y_std)
 
 
-def create_regression_dataset(N_data=100, noise_std=0.1):
-    x_train, y_train = gen_data(N_data, ground_truth_func, noise_std)
-    normalised_train = regression_data(x_train, y_train)
+def to_numpy(x):
+    return x.detach().cpu().numpy()
+
+
+def normalise_data(x):
+    return (x - x.mean) / x.std
+
+
+def unnormalise_data(x):
+    return x * x.std + x.mean
+
+
+def import_dataset(fname, batch_size=64):
+    data = np.genfromtxt(fname, delimiter=',')
+    return data
+
+
+def import_train_test():
+    train = import_dataset('bayes_approx/datasets/gp_reg_dataset/training_sample_points.csv', 128)
+    test = import_dataset('bayes_approx/datasets/gp_reg_dataset/sample_function.csv', 1000)
+    return train, test
+
+
+def create_regression_dataset():
+    train, test = import_train_test()
+    normalised_train = regression_data(train[:,0], train[:,1])
 
     # plot the training data and ground truth
-    x_test = np.arange(np.min(x_train) - 1.0, np.max(x_train) + 1.0, 0.01)[:, np.newaxis]
-    y_test = ground_truth_func(x_test)
-    test = regression_data(x_test, y_test, normalise=False)
-    plt.plot(x_train, y_train, 'ro', label='data')
-    plt.plot(x_test, y_test, 'k-', label='ground-truth')
+    test = regression_data(test[:,0], test[:,1], normalise=False)
+    plt.plot(train[:,0], train[:,1], 'ro', label='data')
+    plt.plot(test[:,0], test[:,1], 'k-', label='ground-truth')
     plt.legend()
     plt.title('ground-truth function')
     plt.show()
@@ -134,3 +126,9 @@ def plot_training_loss(logs):
     ax1.set_title('nll')
     ax2.set_title('kl')
     plt.show()
+
+
+if __name__ == '__main__':
+    train, test = import_train_test()
+    print(train.shape)
+    print(test.shape)

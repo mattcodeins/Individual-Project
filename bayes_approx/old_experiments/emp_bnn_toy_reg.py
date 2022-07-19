@@ -3,7 +3,10 @@ import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
 
-import datasets.toy_regression as d
+import sys
+sys.path.append("../")
+
+from datasets import toy_regression as d
 from modules.bnn.modules.emp_linear import make_linear_emp_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import to_numpy
