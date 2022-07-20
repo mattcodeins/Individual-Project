@@ -17,7 +17,7 @@ from modules.bnn.utils import *
 
 
 torch.manual_seed(1)
-experiment_name = 'emp_bnn_gp_reg_19_06'
+experiment_name = 'emp_bnn_gp_reg_20_06'
 
 # import dataset
 train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -40,14 +40,15 @@ d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
 learning_rate = 1e-4
 params = list(model.parameters()) + [log_noise_var]
 opt = torch.optim.Adam(params, lr=learning_rate)
-N_epochs = 500000
+lr_sch = torch.optim.lr_scheduler.StepLR(opt, 50000, gamma=0.1)
+N_epochs = 150000
 
 # define loss function (-ELBO)
 gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
 kl_loss = GaussianKLLoss()
 nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
 
-logs = training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, log_noise_var, experiment_name, device)
+logs = training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_noise_var, experiment_name, device)
 plot_training_loss(logs)
 
 d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
