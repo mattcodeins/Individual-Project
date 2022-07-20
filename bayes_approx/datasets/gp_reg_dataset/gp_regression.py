@@ -37,44 +37,49 @@ def to_numpy(x):
     return x.detach().cpu().numpy()
 
 
-def normalise_data(x):
-    return (x - x.mean) / x.std
+def normalise_data(x, mean, std):
+    return (x - mean) / std
 
 
-def unnormalise_data(x):
-    return x * x.std + x.mean
+def unnormalise_data(x, mean, std):
+    return x * std + mean
 
 
-def import_dataset(fname, batch_size=64):
+def import_dataset(fname):
     data = np.genfromtxt(fname, delimiter=',')
     return data
 
 
 def import_train_test():
-    train = import_dataset('bayes_approx/datasets/gp_reg_dataset/training_sample_points.csv', 128)
-    test = import_dataset('bayes_approx/datasets/gp_reg_dataset/sample_function.csv', 1000)
-    return train, test
+    noise_std = 0.1
+    train = import_dataset('bayes_approx/datasets/gp_reg_dataset/training_sample_points.csv')
+    test = import_dataset('bayes_approx/datasets/gp_reg_dataset/sample_function.csv')
+    return train, test, noise_std
 
 
 def create_regression_dataset():
-    train, test = import_train_test()
-    normalised_train = regression_data(train[:,0], train[:,1])
+    train, test, noise_std = import_train_test()
+    train_x = train[:,0].reshape(-1,1); train_y = train[:,1].reshape(-1,1)
+    test_x = test[:,0].reshape(-1,1); test_y = test[:,1].reshape(-1,1)
+    normalised_train = regression_data(train_x, train_y)
+    test = regression_data(test_x, test_y, normalise=False)
 
-    # plot the training data and ground truth
-    test = regression_data(test[:,0], test[:,1], normalise=False)
-    plt.plot(train[:,0], train[:,1], 'ro', label='data')
-    plt.plot(test[:,0], test[:,1], 'k-', label='ground-truth')
-    plt.legend()
-    plt.title('ground-truth function')
-    plt.show()
+    # plt.plot(train_x, train_y, 'ro', label='data')
+    # plt.plot(test_x, test_y, 'k-', label='ground-truth')
+    # plt.legend()
+    # plt.title('ground-truth function')
+    # plt.show()
 
-    train_loader = DataLoader(normalised_train, batch_size=64, shuffle=True)
+    train_loader = DataLoader(normalised_train, batch_size=50, shuffle=True)
     test_loader = DataLoader(test, batch_size=1000, shuffle=True)
-    return train_loader, test_loader, normalised_train, test
+    return train_loader, test_loader, normalised_train, test, noise_std
 
 
-def get_regression_results(net, x, K, predict, dataset, log_noise_var=None):
-    y_pred_mean, y_pred_std = predict(net, x, K=K)  # shape (K, N_test, y_dim)
+def get_regression_results(model, x, K, predict, dataset, log_noise_var=None):
+    if K > 1:
+        y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
+    else:
+        return unnormalise_data(to_numpy(model(x)), dataset.y_mean, dataset.y_std)
     if log_noise_var is not None:
         # total uncertainty: here the preditive std needs to count for output noise variance
         y_pred_std = (y_pred_std**2 + torch.exp(log_noise_var)).sqrt()
@@ -84,21 +89,34 @@ def get_regression_results(net, x, K, predict, dataset, log_noise_var=None):
     return y_pred_mean, y_pred_std
 
 
-def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title=''):
+def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title=''):
     x_train = unnormalise_data(normal_train.x, normal_train.x_mean, normal_train.x_std)
     y_train = unnormalise_data(normal_train.y, normal_train.y_mean, normal_train.y_std)
-    plt.plot(x_train, y_train, 'ro', label='data')
-    plt.plot(test.x, test.y, 'k-', label='ground-truth')
-    plt.plot(test.x, y_pred_mean, 'b-', label='prediction mean')
-    # plot the uncertainty as +- 2 * std
+
     # first for the total uncertainty (model/epistemic + data/aleatoric)
-    plt.fill_between(test.x[:,0], y_pred_mean[:,0] - 2*y_pred_std[:,0],
-                     y_pred_mean[:,0] + 2*y_pred_std[:,0],
-                     color='c', alpha=0.3, label='total uncertainty')
-    # then for the model/epistemic uncertainty only
-    plt.fill_between(test.x[:,0], y_pred_mean[:,0] - 2*y_pred_std_noiseless[:,0],
-                     y_pred_mean[:,0] + 2*y_pred_std_noiseless[:,0],
-                     color='b', alpha=0.3, label='model uncertainty')
+    plt.figure(figsize=(12, 6))
+    plt.plot(x_train, y_train, "kx", mew=2, label='noisy sample points')
+    plt.plot(test.x, y_pred_mean, "C0", lw=2, label='prediction mean')
+    plt.fill_between(
+        test.x[:,0],
+        y_pred_mean[:,0] - 1.96 * y_pred_std[:,0],  # 95% confidence interval
+        y_pred_mean[:,0] + 1.96 * y_pred_std[:,0],
+        color="C0",
+        alpha=0.2,
+        label='total uncertainity'
+    )
+    plt.fill_between(
+        test.x[:,0],
+        y_pred_mean[:,0] - 1.96 * y_pred_std_noiseless[:,0],  # 95% confidence interval
+        y_pred_mean[:,0] + 1.96 * y_pred_std_noiseless[:,0],
+        color="b",
+        alpha=0.2,
+        label='model uncertainity'
+    )
+
+    plt.plot(test.x, np.array(y_pred_mean_samples)[:,:,0].T, "C0", linewidth=0.5)
+
+    plt.plot(test.x, test.y, color='orange', label='sample function')
     plt.legend()
     plt.title(title)
     plt.show()
@@ -106,14 +124,18 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
 
 def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_std, title, device):
     # plot the BNN prior in function space
-    K = 50  # number of Monte Carlos samples used in test time
     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
 
-    y_pred_mean, y_pred_std_noiseless = get_regression_results(model, x_test_norm, K, predict, normal_train)
+    y_pred_mean, y_pred_std_noiseless = get_regression_results(
+        model, x_test_norm, 50, predict, normal_train, log_noise_var
+    )
+    y_pred_mean_samples = [
+        get_regression_results(model, x_test_norm, 1, predict, normal_train, log_noise_var)
+        for _ in range(10)]
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
-    plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title)
+    plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title)
     print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
 
 
@@ -128,7 +150,40 @@ def plot_training_loss(logs):
     plt.show()
 
 
+# def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title=''):
+#     x_train = unnormalise_data(normal_train.x, normal_train.x_mean, normal_train.x_std)
+#     y_train = unnormalise_data(normal_train.y, normal_train.y_mean, normal_train.y_std)
+#     plt.plot(x_train, y_train, 'ro', label='data')
+#     plt.plot(test.x, test.y, 'k-', label='ground-truth')
+#     plt.plot(test.x, y_pred_mean, 'b-', label='prediction mean')
+#     # plot the uncertainty as +- 2 * std
+#     # first for the total uncertainty (model/epistemic + data/aleatoric)
+#     plt.fill_between(test.x[:,0], y_pred_mean[:,0] - 1.96*y_pred_std[:,0],
+#                      y_pred_mean[:,0] + 2*y_pred_std[:,0],
+#                      color='c', alpha=0.3, label='total uncertainty')
+#     # then for the model/epistemic uncertainty only
+#     plt.fill_between(test.x[:,0], y_pred_mean[:,0] - 1.96*y_pred_std_noiseless[:,0],
+#                      y_pred_mean[:,0] + 2*y_pred_std_noiseless[:,0],
+#                      color='b', alpha=0.3, label='model uncertainty')
+#     plt.legend()
+#     plt.title(title)
+#     plt.show()
+
+
+# def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_std, title, device):
+#     # plot the BNN prior in function space
+#     K = 50  # number of Monte Carlos samples used in test time
+#     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
+#     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
+
+#     y_pred_mean, y_pred_std_noiseless = get_regression_results(model, x_test_norm, K, predict, normal_train)
+#     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
+#     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
+#     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title)
+#     print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
+
+
 if __name__ == '__main__':
-    train, test = import_train_test()
+    train, test, _ = import_train_test()
     print(train.shape)
     print(test.shape)
