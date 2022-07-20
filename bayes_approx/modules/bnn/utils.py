@@ -26,9 +26,8 @@ def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, beta, 
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, beta, device)
 
-        logs = logging(model, logs, i, loss, nll, kl)
-
-        if (i+1) % 10 == 0:
+        if (i+1) % 100 == 0:
+            logs = logging(model, logs, i, loss, nll, kl)
             # torch.save(model.state_dict(), f'saved_models/{filename}.pt')
             # write_logs_to_file(logs, filename)
             if beta is None:
@@ -188,7 +187,7 @@ def plot_training_loss(logs):
     axs[0,0].plot(np.arange(logs.shape[0]), -logs[:,1], 'r-')
     axs[0,1].plot(np.arange(logs.shape[0]), logs[:,2], 'r-')
     axs[1,0].plot(np.arange(logs.shape[0]), logs[:,3], 'r-')
-    axs[1,1].plot(np.arange(logs.shape[0]), logs[:,4], 'r-')
+    # axs[1,1].plot(np.arange(logs.shape[0]), logs[:,4], 'r-')
 
     axs[1,0].set_xlabel('epoch')
     axs[1,1].set_xlabel('epoch')
@@ -196,7 +195,7 @@ def plot_training_loss(logs):
     axs[0,0].set_title('elbo')
     axs[0,1].set_title('nll')
     axs[1,0].set_title('kl')
-    axs[1,1].set_title('prior std')
+    # axs[1,1].set_title('prior std')
 
     plt.show()
 
