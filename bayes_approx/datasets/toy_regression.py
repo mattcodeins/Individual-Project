@@ -66,10 +66,10 @@ def create_regression_dataset(N_data=100, noise_std=0.1):
     x_train, y_train = gen_data(N_data, ground_truth_func, noise_std)
     normalised_train = regression_data(x_train, y_train)
 
-    # plot the training data and ground truth
     x_test = np.arange(np.min(x_train) - 1.0, np.max(x_train) + 1.0, 0.01)[:, np.newaxis]
     y_test = ground_truth_func(x_test)
     test = regression_data(x_test, y_test, normalise=False)
+
     plt.plot(x_train, y_train, 'ro', label='data')
     plt.plot(x_test, y_test, 'k-', label='ground-truth')
     plt.legend()

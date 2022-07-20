@@ -16,7 +16,7 @@ import datasets.gp_reg_dataset.gp_regression as d
 np.random.seed(1)
 tf.random.set_seed(1)
 
-train, test = d.import_train_test()
+train, test, noise_std = d.import_train_test()
 
 X = train[:,0].reshape(-1, 1)
 Y = train[:,1].reshape(-1, 1)
@@ -62,11 +62,10 @@ plt.fill_between(
     color="C0",
     alpha=0.2
 )
-
 plt.plot(X_test, samples[:,:,0].numpy().T, "C0", linewidth=0.5)
 
 
-print(X_test.mean())
+print(Y_test.mean())
 plt.plot(X_test, Y_test, color='orange', label='sample function')
 plt.legend()
 plt.show()

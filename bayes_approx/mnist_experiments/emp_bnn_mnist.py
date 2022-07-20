@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 # import numpy as np
 # import matplotlib.pyplot as plt
-# import torchvision
 
 from modules.bnn.modules.emp_linear import make_linear_emp_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
