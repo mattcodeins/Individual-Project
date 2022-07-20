@@ -19,17 +19,17 @@ def to_numpy(x):
 
 
 # Methods below are for single ELBO objectives
-def training_loop(model, N_epochs, opt, nelbo, train_loader, test_loader, beta, filename, device=device):
+def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, beta, filename, device=device):
     model.train()
     logs = []
     for i in range(N_epochs):
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, beta, device)
-
+        lr_sch.step()
         if (i+1) % 100 == 0:
             logs = logging(model, logs, i, loss, nll, kl)
-            # torch.save(model.state_dict(), f'saved_models/{filename}.pt')
-            # write_logs_to_file(logs, filename)
+            torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
+            write_logs_to_file(logs, filename)
             if beta is None:
                 test_step(model, nelbo, test_loader, device=device)
 
@@ -52,7 +52,7 @@ def train_step(model, opt, nelbo, dataloader, log_noise_var, device=device):
         if log_noise_var is None:
             loss_args = (y_pred, y)
         else:
-            beta = torch.exp(log_noise_var)*torch.ones(x.shape[0])
+            beta = torch.exp(log_noise_var)*torch.ones(x.shape[0], device=device)
             loss_args = (y_pred, y, beta)
         loss, nll, kl = nelbo(model, loss_args, minibatch_ratio)
         loss.backward()
@@ -201,7 +201,7 @@ def plot_training_loss(logs):
 
 
 def write_logs_to_file(logs, name):
-    with open(f"./results/{name}.csv", "w") as f:
+    with open(f"./bayes_approx/results/{name}.csv", "w") as f:
         writer = csv.writer(f)
         writer.writerow(['epoch', 'elbo', 'nll', 'kl', 'prior_std'])
         writer.writerows(logs)
@@ -210,7 +210,7 @@ def write_logs_to_file(logs, name):
 
 def uniquify(name):
     counter = 1
-    while os.path.exists("results/" + name + ".csv"):
+    while os.path.exists("bayes_approx/results/" + name + ".csv"):
         name = name + "_" + str(counter)
         counter += 1
     return name
@@ -221,8 +221,7 @@ def predict_wo_var(model, x_test, device=device, **kwargs):
 
 
 def load_model(model, model_name):
-    path = f"saved_models/{model_name}.pt"
+    path = f"bayes_approx/saved_models/{model_name}.pt"
     model.load_state_dict(torch.load(path, map_location=torch.device(device)))
     model.eval()
     return model
-
