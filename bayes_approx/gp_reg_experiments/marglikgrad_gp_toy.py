@@ -11,13 +11,13 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 from datasets.gp_reg_dataset import gp_regression as d
-from modules.bnn.modules.emp_linear import make_linear_emp_bnn
+from modules.bnn.modules.marglikgrad_linear import make_mlg_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import *
 
 
 torch.manual_seed(1)
-experiment_name = 'emp_bnn_gp_reg_23_07'
+experiment_name = 'mlg_gp_reg_20_06'
 
 # import dataset
 train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -28,11 +28,8 @@ x_dim, y_dim = 1, 1
 h_dim = 50
 layer_sizes = [x_dim, h_dim, y_dim]
 activation = nn.ReLU()
-init_prior_std = 1.0
-layer_kwargs = {'sqrt_width_scaling': True,
-                'init_std': 0.05,
-                'device': device}
-model = make_linear_emp_bnn(layer_sizes, init_prior_std, activation, **layer_kwargs)
+model = make_mlg_linear_bnn(layer_sizes, activation=activation, device=device)
+# log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
 log_noise_var = nn.Parameter(torch.ones(size=(), device=device)*-3.0)  # Gaussian likelihood
 print("BNN architecture: \n", model)
 
@@ -51,8 +48,7 @@ gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
 kl_loss = GaussianKLLoss()
 nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
 
-logs = training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader,
-                     test_loader, log_noise_var, experiment_name, device)
+logs = training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_noise_var, experiment_name, device)
 plot_training_loss(logs)
 
 d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
