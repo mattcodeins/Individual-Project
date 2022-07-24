@@ -1,111 +1,71 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-import datasets.toy_regression as d
+import os
+import sys
+import inspect
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+
+from datasets import toy_regression as d
 from modules.bnn.modules.marglikgrad_linear import make_mlg_linear_bnn
 from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import to_numpy
 
 
-def train_step(model, opt, nelbo, dataloader, log_noise_var, device):
-    tloss, tnll, tkl = 0,0,0
-    for _, (x, y) in enumerate(dataloader):
-        minibatch_ratio = x.shape[0] / len(dataloader.dataset)
-        noise_var = torch.exp(log_noise_var)*torch.ones(x.shape[0])
-        x = x.to(device); y = y.to(device)
-        y_pred = model(x)
-        loss, nll, kl = nelbo(model, (y_pred, y, noise_var), minibatch_ratio)
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
-        tloss += loss; tnll += nll; tkl += kl
-    return tloss, tnll, tkl
+torch.manual_seed(1)
+experiment_name = 'MLGbnn_toy_23_07'
 
+# create dataset
+N_data = 100; noise_std = 0.1
+dataloader, dataset, train, test = d.create_regression_dataset(N_data, noise_std)
 
-def predict(bnn, x_test, K=1):  # Monte Carlo sampling using K samples
-    y_pred = []
-    for _ in range(K):
-        y_pred.append(bnn(x_test))
-    # shape (K, batch_size, y_dim) or (batch_size, y_dim) if K = 1
-    return torch.stack(y_pred, dim=0).squeeze(0)
+# create bnn
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+x_dim, y_dim = train.x.shape[1], train.y.shape[1]
+h_dim = 50
+layer_sizes = [x_dim, h_dim, h_dim, y_dim]
+activation = nn.ReLU()
+layer_kwargs = {'prior_weight_std': 1.0,
+                'prior_bias_std': 1.0,
+                'sqrt_width_scaling': False,
+                'init_std': 0.05,
+                'device': device}
+model = make_mlg_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
+log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
+print("BNN architecture: \n", model)
 
+d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
+                        'BNN init (before training, MFVI)', device)
 
-if __name__ == "__main__":
-    torch.manual_seed(1)
+# training hyperparameters
+learning_rate = 1e-4
+params = list(model.parameters()) + [log_noise_var]
+opt = torch.optim.Adam(params, lr=learning_rate)
+# hyper-parameters of training
+N_epochs = 5000
 
-    # create dataset
-    N_data = 100; noise_std = 0.1
-    dataloader, dataset, x_train, y_train, x_test, y_test = d.create_regression_dataset(N_data, noise_std)
+gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
+kl_loss = GaussianKLLoss()
+nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
 
-    # create bnn
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    x_dim, y_dim = x_train.shape[1], y_train.shape[1]
-    h_dim = 50
-    layer_sizes = [x_dim, h_dim, h_dim, y_dim]
-    activation = nn.GELU()
-    layer_kwargs = {'prior_weight_std': 1.0,
-                    'prior_bias_std': 1.0,
-                    'sqrt_width_scaling': False,
-                    'init_std': 0.05,
-                    'device': device}
-    model = make_mlg_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
-    log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
-    print("BNN architecture: \n", model)
+# training loop
+model.train()
+logs = []
+for i in range(N_epochs):
+    loss, nll, kl = train_step(
+        model, opt, nelbo, dataloader, log_noise_var, device=device
+    )
+    logs.append([to_numpy(nll), to_numpy(kl), to_numpy(loss), to_numpy(nll)/to_numpy(kl)])
+    if (i+1) % 100 == 0:
+        print("Epoch {}, nll={}, kl={}, nelbo={}, ratio={}"
+                .format(i+1, logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3]))
+logs = np.array(logs)
 
-    # plot the BNN prior in function space
-    K = 50  # number of Monte Carlos samples used in test time
-    x_test_norm = d.normalise_data(x_test, dataset.x_mean, dataset.x_std)
-    x_test_norm = torch.tensor(x_test_norm, ).float().to(device)
+d.plot_training_loss(logs)
 
-    y_pred_mean, y_pred_std_noiseless = d.get_regression_results(model, x_test_norm, K, predict, dataset)
-    model_noise_std = d.unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, dataset.y_std)
-    y_pred_std = np.sqrt(y_pred_std_noiseless ** 2 + model_noise_std ** 2)
-    d.plot_regression(x_train, y_train, x_test, y_test, y_pred_mean, y_pred_std_noiseless, y_pred_std,
-                      title='BNN init (before training, MFVI)')
-    print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
-
-    # training hyperparameters
-    learning_rate = 1e-4
-    params = list(model.parameters()) + [log_noise_var]
-    opt = torch.optim.Adam(params, lr=learning_rate)
-    # hyper-parameters of training
-    N_epochs = 5000
-
-    gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
-    kl_loss = GaussianKLLoss()
-    nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
-
-    # training loop
-    model.train()
-    logs = []
-    for i in range(N_epochs):
-        loss, nll, kl = train_step(
-            model, opt, nelbo, dataloader, log_noise_var, device=device
-        )
-        logs.append([to_numpy(nll), to_numpy(kl), to_numpy(loss), to_numpy(nll)/to_numpy(kl)])
-        if (i+1) % 100 == 0:
-            print("Epoch {}, nll={}, kl={}, nelbo={}, ratio={}"
-                  .format(i+1, logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3]))
-    logs = np.array(logs)
-
-    # plot the training curve
-    def plot_training_loss(logs):
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
-        ax1.plot(np.arange(logs.shape[0]), logs[:, 0], 'r-')
-        ax2.plot(np.arange(logs.shape[0]), logs[:, 1], 'r-')
-        ax1.set_xlabel('epoch')
-        ax2.set_xlabel('epoch')
-        ax1.set_title('nll')
-        ax2.set_title('kl')
-        plt.show()
-
-    plot_training_loss(logs)
-
-    y_pred_mean, y_pred_std_noiseless = d.get_regression_results(model, x_test_norm, K, predict, dataset)
-    model_noise_std = d.unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, dataset.y_std)
-    y_pred_std = np.sqrt(y_pred_std_noiseless ** 2 + model_noise_std ** 2)
-    d.plot_regression(x_train, y_train, x_test, y_test, y_pred_mean, y_pred_std_noiseless, y_pred_std,
-                      title='BNN approx. posterior (MFVI)')
-    print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
+d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
+                        'BNN init (before training, MFVI)', device)

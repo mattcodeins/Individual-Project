@@ -3,7 +3,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as dist
 
 
 class MLGBayesLinear(nn.Module):
@@ -33,7 +32,7 @@ class MLGBayesLinear(nn.Module):
         # prior parameters (Gaussian)
         prior_mean = 0.0
         if sqrt_width_scaling:  # prior variance scales as 1/in_features
-            prior_weight_std /= self.in_features ** 0.5
+            prior_weight_std /= self.in_features**0.5
         # prior parameters are registered as constants
         self.register_buffer('prior_weight_mean', prior_mean * torch.ones(out_features, in_features))
         self.register_buffer('prior_weight_std', prior_weight_std * torch.ones(out_features, in_features))
@@ -74,23 +73,6 @@ class MLGBayesLinear(nn.Module):
     def bias_std(self):
         return torch.log(1 + torch.exp(self._bias_std_param))
 
-    # KL divergence KL[q||p] between approximate Gaussian posterior and Gaussian prior
-    def kl_divergence(self):
-        """
-        Alternative to benchmark later:
-        kl = (log_sigma_1 - log_sigma_0 + \
-        (torch.exp(log_sigma_0)**2 + (mu_0-mu_1)**2)/(2*math.exp(log_sigma_1)**2) - 0.5).sum()
-        Could also test using sampled weights as in paper (not closed form complexity cost).
-        """
-        q_weight = dist.Normal(self.weight_mean, self.weight_std)
-        p_weight = dist.Normal(self.prior_weight_mean, self.prior_weight_std)
-        kl = dist.kl_divergence(q_weight, p_weight).sum()
-        if self.bias:
-            q_bias = dist.Normal(self.bias_mean, self.bias_std)
-            p_bias = dist.Normal(self.prior_bias_mean, self.prior_bias_std)
-            kl += dist.kl_divergence(q_bias, p_bias).sum()
-        return kl
-
     # forward pass using reparam trick
     def forward(self, input):
         weight_eps = self.weight_mean + self.weight_std * torch.randn_like(self.weight_std)
@@ -108,7 +90,7 @@ def make_mlg_linear_bnn(layer_sizes, activation='LeakyReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'BayesLinear{i}', MLGBayesLinear(dim_in, dim_out, **layer_kwargs))
+        net.add_module(f'MLGBayesLinear{i}', MLGBayesLinear(dim_in, dim_out, **layer_kwargs))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net

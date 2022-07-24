@@ -3,7 +3,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as dist
 
 
 class BayesLinear(nn.Module):
@@ -73,23 +72,6 @@ class BayesLinear(nn.Module):
     @property
     def bias_std(self):
         return torch.log(1 + torch.exp(self._bias_std_param))
-
-    # KL divergence KL[q||p] between approximate Gaussian posterior and Gaussian prior
-    def kl_divergence(self):
-        """
-        Alternative to benchmark later:
-        kl = (log_sigma_1 - log_sigma_0 + \
-        (torch.exp(log_sigma_0)**2 + (mu_0-mu_1)**2)/(2*math.exp(log_sigma_1)**2) - 0.5).sum()
-        Could also test using sampled weights as in paper (not closed form complexity cost).
-        """
-        q_weight = dist.Normal(self.weight_mean, self.weight_std)
-        p_weight = dist.Normal(self.prior_weight_mean, self.prior_weight_std)
-        kl = dist.kl_divergence(q_weight, p_weight).sum()
-        if self.bias:
-            q_bias = dist.Normal(self.bias_mean, self.bias_std)
-            p_bias = dist.Normal(self.prior_bias_mean, self.prior_bias_std)
-            kl += dist.kl_divergence(q_bias, p_bias).sum()
-        return kl
 
     # forward pass using reparam trick
     def forward(self, input):
