@@ -11,7 +11,7 @@ class EmpBayesLinear(nn.Module):
     Prior mean is zero for all weights and biases.
     """
     def __init__(self, in_features, out_features, _prior_std_param, bias=True,
-                 init_std=0.05, device=None, dtype=None):
+                 init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(EmpBayesLinear, self).__init__()
         self.in_features = in_features
@@ -32,6 +32,7 @@ class EmpBayesLinear(nn.Module):
 
         # prior parameters (Gaussian)
         prior_mean = 0.0
+        self.sqrt_width_scaling = sqrt_width_scaling
         self.register_buffer('prior_weight_mean', torch.full_like(self.weight_mean, prior_mean))
         self._prior_weight_std_param = _prior_std_param
         if self.bias:
@@ -73,7 +74,11 @@ class EmpBayesLinear(nn.Module):
 
     @property
     def prior_weight_std(self):
-        return torch.log(1 + torch.exp(self._prior_weight_std_param))
+        if self.sqrt_width_scaling:
+            std = torch.log(1 + torch.exp(self._prior_weight_std_param)) / self.in_features**0.5
+        else:
+            std = torch.log(1 + torch.exp(self._prior_weight_std_param))
+        return std
 
     @property
     def prior_bias_std(self):
@@ -90,12 +95,16 @@ class EmpBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_emp_bnn(layer_sizes, device, activation='LeakyReLU'):
+def make_linear_emp_bnn(layer_sizes, init_prior_std, activation='LeakyReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
-    net.register_parameter(name='_prior_std_param', param=nn.Parameter(torch.tensor(0.5413, device=device)))  # 0.5413
+    net.register_parameter(name='_prior_std_param',
+                           param=nn.Parameter(torch.tensor(
+                                np.log(np.exp(init_prior_std) - 1),
+                                device=layer_kwargs['device']
+                           )))  # 0.5413
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, device=device))
+        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, **layer_kwargs))
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net
