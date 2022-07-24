@@ -37,9 +37,9 @@ print(sample.numpy().mean(0))
 
 plt.scatter(xx, sample, marker='x')
 
-x1 = np.random.randn(20, 1) * 0.04 + 0.2
-x2 = np.random.randn(10, 1) * 0.04 + 0.5
-x3 = np.random.randn(20, 1) * 0.04 + 0.8
+x1 = np.random.randn(80, 1) * 0.04 + 0.2
+x2 = np.random.randn(40, 1) * 0.04 + 0.5
+x3 = np.random.randn(80, 1) * 0.04 + 0.8
 xt = np.sort(np.concatenate([x1, x2, x3], axis=0),0)
 sample2 = sample.numpy().take((xt[:,0] * 1000).astype(int))
 

@@ -128,10 +128,10 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_
     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
 
     y_pred_mean, y_pred_std_noiseless = get_regression_results(
-        model, x_test_norm, 50, predict, normal_train, log_noise_var
+        model, x_test_norm, 50, predict, normal_train
     )
     y_pred_mean_samples = [
-        get_regression_results(model, x_test_norm, 1, predict, normal_train, log_noise_var)
+        get_regression_results(model, x_test_norm, 1, predict, normal_train)
         for _ in range(10)]
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
