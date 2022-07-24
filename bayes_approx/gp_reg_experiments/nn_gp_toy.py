@@ -12,7 +12,7 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 from datasets.gp_reg_dataset import gp_regression as d
-from modules.bnn.modules.linear import make_linear_bnn
+from modules.bnn.modules.nnlinear import make_linear_nn
 from modules.bnn.utils import *
 
 # OPTIMISE = True
@@ -57,9 +57,9 @@ if __name__ == "__main__":
     layer_kwargs = {'prior_weight_std': 1.0,
                     'prior_bias_std': 1.0,
                     'sqrt_width_scaling': False,
-                    'init_std': 0.05,
+                    'init_std': 0,
                     'device': device}
-    model = make_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
+    model = make_linear_nn(layer_sizes, activation=activation, **layer_kwargs)
     log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
@@ -67,11 +67,11 @@ if __name__ == "__main__":
                          'BNN init (before training, MFVI)', device)
 
     # training hyperparameters
-    learning_rate = 1e-4
+    learning_rate = 1e-3
     params = list(model.parameters()) + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
-    # hyper-parameters of training
-    N_epochs = 30000
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, 2000, gamma=0.1)
+    N_epochs = 1000
 
     nll = nn.GaussianNLLLoss(full=True, reduction='sum')
 
