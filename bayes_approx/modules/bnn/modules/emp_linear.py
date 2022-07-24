@@ -95,7 +95,11 @@ class EmpBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
+<<<<<<< HEAD
 def make_linear_emp_bnn(layer_sizes, init_prior_std, activation='LeakyReLU', **layer_kwargs):
+=======
+def make_linear_emp_bnn(layer_sizes, device, activation='ReLU', init_std=0.5):
+>>>>>>> a12a6bc008faf2611fadf7ca63f4a352fb0df934
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
     net.register_parameter(name='_prior_std_param',
@@ -104,7 +108,11 @@ def make_linear_emp_bnn(layer_sizes, init_prior_std, activation='LeakyReLU', **l
                                 device=layer_kwargs['device']
                            )))  # 0.5413
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
+<<<<<<< HEAD
         net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, **layer_kwargs))
+=======
+        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, init_std=init_std, device=device))
+>>>>>>> a12a6bc008faf2611fadf7ca63f4a352fb0df934
         if i < len(layer_sizes) - 2:
             net.add_module(f'Nonlinearity{i}', nonlinearity)
     return net
