@@ -3,7 +3,7 @@ import torch
 import matplotlib.pyplot as plt
 import csv
 import os
-# import torch.nn as nn
+import torch.nn.functional as F
 # import torchviz as tv
 
 from modules.bnn.modules.linear import BayesLinear
@@ -31,7 +31,9 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
             torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
             write_logs_to_file(logs, filename)
             if beta is None:
-                test_step(model, nelbo, test_loader, device=device)
+                classif_test_step(model, nelbo, test_loader, device=device)
+            else:
+                regres_test_step(model, test_loader, device=device)
 
     logs = np.array(logs)
     return logs
@@ -64,7 +66,7 @@ def train_step(model, opt, nelbo, dataloader, log_noise_var, device=device):
     return tloss, tnll, tkl
 
 
-def test_step(model, nelbo, dataloader, predict, device=device):
+def classif_test_step(model, nelbo, dataloader, device=device):
     """
     Calculate accuracy on test set.
     """
@@ -88,6 +90,20 @@ def test_step(model, nelbo, dataloader, predict, device=device):
     ))
 
 
+def regres_test_step(model, dataloader, device=device):
+    """
+    Calculate accuracy on test set.
+    """
+    model.eval()
+    tloss = 0
+    with torch.no_grad():
+        for x_test, y_test in dataloader:
+            m, _ = predict(model, x_test.reshape((x_test.shape[0],-1)), K=50)
+            tloss += F.mse_loss(m, y_test)
+    print('\nTest set: MSE: {}'.format(tloss))
+    return tloss
+
+
 def predict(model, x_test, K=1, device=device):
     """
     Monte Carlo sampling of BNN using K samples.
@@ -109,7 +125,7 @@ def ml_sep_training_loop(model, N_epochs, nn_opt, ml_opt, map_loss, ml_loss, tra
         loss, nll, prior_reg = train_step(model, nn_opt, map_loss, train_loader, device)
         ml_loss = ml_train_step(model, ml_opt, ml_loss, train_loader, device)
 
-        logs = logging(model, logs, i, loss, nll, prior_reg, ml_loss)
+        logs = logging(model, logs, i, loss, nll, prior_reg, beta, ml_loss)
 
         if (i+1) % 10 == 0:
             # torch.save(model.state_dict(), f'saved_models/{filename}.pt')
@@ -145,7 +161,7 @@ def ml_train_step(model, opt, ml_approx, dataloader, device=device):
 
 
 # General functions below
-def logging(model, logs, i, loss, nll, prior_reg, ml_loss=None):
+def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
     """
     What we want to log depends on the learnable parameters.
     """
