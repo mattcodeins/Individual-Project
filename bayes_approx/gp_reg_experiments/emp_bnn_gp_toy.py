@@ -25,7 +25,6 @@ train_loader, test_loader, train, test, noise_std = d.create_regression_dataset(
 # create bnn
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 x_dim, y_dim = 1, 1
-<<<<<<< HEAD
 h_dim = 50
 layer_sizes = [x_dim, h_dim, y_dim]
 activation = nn.ReLU()
@@ -34,13 +33,6 @@ layer_kwargs = {'sqrt_width_scaling': True,
                 'init_std': 0.05,
                 'device': device}
 model = make_linear_emp_bnn(layer_sizes, init_prior_std, activation, **layer_kwargs)
-=======
-h_dim = 100
-layer_sizes = [x_dim, h_dim, h_dim, y_dim]
-activation = nn.ReLU()
-model = make_linear_emp_bnn(layer_sizes, activation=activation, init_std=0.1, device=device)
-# log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
->>>>>>> a12a6bc008faf2611fadf7ca63f4a352fb0df934
 log_noise_var = nn.Parameter(torch.ones(size=(), device=device)*-3.0)  # Gaussian likelihood
 print("BNN architecture: \n", model)
 
@@ -51,13 +43,8 @@ d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
 learning_rate = 1e-3
 params = list(model.parameters()) + [log_noise_var]
 opt = torch.optim.Adam(params, lr=learning_rate)
-<<<<<<< HEAD
 lr_sch = torch.optim.lr_scheduler.StepLR(opt, 50000, gamma=0.1)
 N_epochs = 1500
-=======
-lr_sch = torch.optim.lr_scheduler.StepLR(opt, 10000, gamma=0.1)
-N_epochs = 20000
->>>>>>> a12a6bc008faf2611fadf7ca63f4a352fb0df934
 
 # define loss function (-ELBO)
 gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')

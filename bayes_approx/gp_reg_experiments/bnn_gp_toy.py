@@ -18,7 +18,7 @@ from modules.bnn.utils import *
 
 
 torch.manual_seed(1)
-experiment_name = 'bnn_gp_reg_19_06'
+experiment_name = 'bnn_gp_reg_29_07'
 
 # import dataset
 train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -27,16 +27,16 @@ train_loader, test_loader, train, test, noise_std = d.create_regression_dataset(
 # create bnn
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 x_dim, y_dim = 1, 1
-h_dim = 100
+h_dim = 50
 layer_sizes = [x_dim, h_dim, h_dim, y_dim]
 activation = nn.ReLU()
-layer_kwargs = {'prior_weight_std': 1.0,
-                'prior_bias_std': 1.0,
-                'sqrt_width_scaling': False,
-                'init_std': 0.01,
+layer_kwargs = {'prior_weight_std': 5.0,
+                'prior_bias_std': 5.0,
+                'sqrt_width_scaling': True,
+                'init_std': 0.05,
                 'device': device}
-model = make_linear_bnn(layer_sizes, activation=activation, **layer_kwargs)
-log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
+model = make_linear_bnn(layer_sizes, activation, **layer_kwargs)
+log_noise_var = torch.ones(size=(), device=device)*-4.6  # Gaussian likelihood -4.6 == std 0.1
 print("BNN architecture: \n", model)
 
 d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
@@ -44,16 +44,19 @@ d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
 
 # training hyperparameters
 learning_rate = 1e-3
-params = list(model.parameters()) #+ [log_noise_var]
+params = list(model.parameters())  # + [log_noise_var]
 opt = torch.optim.Adam(params, lr=learning_rate)
 lr_sch = torch.optim.lr_scheduler.StepLR(opt, 2000, gamma=0.1)
-N_epochs = 10000
+N_epochs = 1000
 
 gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
 kl_loss = GaussianKLLoss()
 nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
+# nelbo = nELBO(nll_loss=gnll_loss, kl_loss=lambda a: torch.tensor([0]))
 
-logs = training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_noise_var, experiment_name, device)
+logs = training_loop(
+    model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_noise_var, experiment_name, device
+)
 plot_training_loss(logs)
 
 d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
