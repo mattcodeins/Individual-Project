@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from modules.bnn.modules.linear import BayesLinear
 from modules.bnn.modules.emp_linear import EmpBayesLinear
 from modules.bnn.modules.ext_emp_linear import ExtEmpBayesLinear
+from modules.bnn.modules.cm_linear import CMBayesLinear
+from modules.bnn.modules.cmv_linear import CMVBayesLinear
 
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -26,7 +28,7 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, beta, device)
         lr_sch.step()
-        if (i+1) % 100 == 0:
+        if (i+1) % 1000 == 0:
             logs = logging(model, logs, i, loss, nll, kl)
             torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
             write_logs_to_file(logs, filename)
@@ -195,6 +197,23 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
             print("Epoch {}, nelbo={}, nll={}, prior_reg={}, prior_mean={}, avg prior_std (1st layer)={}".format(
                 logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
             ))
+    elif isinstance(first_layer, (CMBayesLinear)):
+        # prior_mean_hyperstd = np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))
+        # logs.append(loss_logs + [prior_mean_hyperstd])
+        logs.append(loss_logs + [model.prior_mean_hyperstd])
+        print("Epoch {}, nelbo={}, nll={}, kl={}, prior_mean_hyperstd={}".format(
+            logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4]
+        ))
+    elif isinstance(first_layer, (CMVBayesLinear)):
+        # prior_mean_hyperstd = np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))
+        # logs.append(loss_logs + [prior_mean_hyperstd])
+        logs.append(loss_logs + [np.log(1 + np.exp(to_numpy(model._hyperprior_alpha_param)))]
+                              + [np.log(1 + np.exp(to_numpy(model._hyperprior_beta_param)))]
+                              + [np.log(1 + np.exp(to_numpy(model._hyperprior_t_param)))])
+        print("Epoch {}, nelbo={}, nll={}, kl={}, alpha={}, beta={}, t={}".format(
+            logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
+        ))
+
     return logs
 
 

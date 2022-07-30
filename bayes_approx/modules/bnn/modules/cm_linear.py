@@ -5,15 +5,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class EmpBayesLinear(nn.Module):
+class CMBayesLinear(nn.Module):
     """
     Learnable single prior std shared by all weights and biases.
     Prior mean is zero for all weights and biases.
     """
-    def __init__(self, in_features, out_features, _prior_std_param, bias=True,
-                 init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
+    def __init__(self, in_features, out_features, _prior_mean_hyperstd_param, prior_weight_std=1.0, prior_bias_std=1.0,
+                 bias=True, init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
-        super(EmpBayesLinear, self).__init__()
+        super(CMBayesLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
 
@@ -31,13 +31,16 @@ class EmpBayesLinear(nn.Module):
         self.reset_parameters(init_std)
 
         # prior parameters (Gaussian)
-        prior_mean = 0.0
-        self.sqrt_width_scaling = sqrt_width_scaling
+        self._prior_mean_hyperstd_param = _prior_mean_hyperstd_param
+
+        prior_mean = 0
+        if sqrt_width_scaling:  # prior variance scales as 1/in_features
+            prior_weight_std /= self.in_features ** 0.5
         self.register_buffer('prior_weight_mean', torch.full_like(self.weight_mean, prior_mean))
-        self._prior_weight_std_param = _prior_std_param
+        self.register_buffer('prior_weight_std', torch.full_like(self._weight_std_param, prior_weight_std))
         if self.bias:
             self.register_buffer('prior_bias_mean', torch.full_like(self.bias_mean, prior_mean))
-            self._prior_bias_std_param = _prior_std_param
+            self.register_buffer('prior_bias_std', torch.full_like(self._bias_std_param, prior_bias_std))
         else:
             self.register_buffer('prior_bias_mean', None)
             self.register_buffer('prior_bias_std', None)
@@ -73,16 +76,8 @@ class EmpBayesLinear(nn.Module):
         return torch.log(1 + torch.exp(self._bias_std_param))
 
     @property
-    def prior_weight_std(self):
-        if self.sqrt_width_scaling:
-            std = torch.log(1 + torch.exp(self._prior_weight_std_param)) / self.in_features**0.5
-        else:
-            std = torch.log(1 + torch.exp(self._prior_weight_std_param))
-        return std
-
-    @property
-    def prior_bias_std(self):
-        return torch.log(1 + torch.exp(self._prior_bias_std_param))
+    def prior_mean_hyperstd(self):
+        return torch.log(1 + torch.exp(self._prior_mean_hyperstd_param))
 
     # forward pass using reparam trick
     def forward(self, input):
@@ -95,16 +90,22 @@ class EmpBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_emp_bnn(layer_sizes, init_prior_std, activation='ReLU', **layer_kwargs):
+def make_linear_cm_bnn(layer_sizes, init_prior_hyperstd, activation='ReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
-    net = nn.Sequential()
-    net.register_parameter(name='_prior_std_param',
-                           param=nn.Parameter(torch.tensor(
-                                np.log(np.exp(init_prior_std) - 1),
-                                device=layer_kwargs['device']
-                           )))  # 0.5413
+    bnn = nn.Sequential()
+    # bnn.register_parameter(name='_prior_mean_hyperstd_param',
+    #                        param=nn.Parameter(torch.tensor(
+    #                             np.log(np.exp(init_prior_hyperstd) - 1),
+    #                             device=layer_kwargs['device']
+    #                        )))  # 0.5413
+    bnn.register_buffer('prior_mean_hyperstd', torch.tensor(init_prior_hyperstd))
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, **layer_kwargs))
+        # bnn.add_module(f'CMBayesLinear{i}', CMBayesLinear(
+        #     dim_in, dim_out, bnn._prior_mean_hyperstd_param, **layer_kwargs
+        # ))
+        bnn.add_module(f'CMBayesLinear{i}', CMBayesLinear(
+            dim_in, dim_out, bnn.prior_mean_hyperstd, **layer_kwargs
+        ))
         if i < len(layer_sizes) - 2:
-            net.add_module(f'Nonlinearity{i}', nonlinearity)
-    return net
+            bnn.add_module(f'Nonlinearity{i}', nonlinearity)
+    return bnn

@@ -84,8 +84,10 @@ def get_regression_results(model, x, K, predict, dataset, log_noise_var=None):
         # total uncertainty: here the preditive std needs to count for output noise variance
         y_pred_std = (y_pred_std**2 + torch.exp(log_noise_var)).sqrt()
     # unnormalise
-    y_pred_mean = unnormalise_data(to_numpy(y_pred_mean), dataset.y_mean, dataset.y_std)
-    y_pred_std = unnormalise_data(to_numpy(y_pred_std), 0.0, dataset.y_std)
+    # y_pred_mean = unnormalise_data(to_numpy(y_pred_mean), dataset.y_mean, dataset.y_std)
+    y_pred_mean = unnormalise_data(y_pred_mean, dataset.y_mean, dataset.y_std)
+    # y_pred_std = unnormalise_data(to_numpy(y_pred_std), 0.0, dataset.y_std)
+    y_pred_std = unnormalise_data(y_pred_std, 0.0, dataset.y_std)
     return y_pred_mean, y_pred_std
 
 
@@ -99,22 +101,26 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
     plt.plot(test.x, y_pred_mean, "C0", lw=2, label='prediction mean')
     plt.fill_between(
         test.x[:,0],
-        y_pred_mean[:,0] - 1.96 * y_pred_std[:,0],  # 95% confidence interval
-        y_pred_mean[:,0] + 1.96 * y_pred_std[:,0],
+        # y_pred_mean[:,0] - 1.96 * y_pred_std[:,0],  # 95% confidence interval
+        # y_pred_mean[:,0] + 1.96 * y_pred_std[:,0],
+        y_pred_mean - 1.96 * y_pred_std,  # 95% confidence interval
+        y_pred_mean + 1.96 * y_pred_std,
         color="C0",
         alpha=0.2,
         label='total uncertainity'
     )
     plt.fill_between(
         test.x[:,0],
-        y_pred_mean[:,0] - 1.96 * y_pred_std_noiseless[:,0],  # 95% confidence interval
-        y_pred_mean[:,0] + 1.96 * y_pred_std_noiseless[:,0],
+        # y_pred_mean[:,0] - 1.96 * y_pred_std_noiseless[:,0],  # 95% confidence interval
+        # y_pred_mean[:,0] + 1.96 * y_pred_std_noiseless[:,0],
+        y_pred_mean - 1.96 * y_pred_std_noiseless,  # 95% confidence interval
+        y_pred_mean + 1.96 * y_pred_std_noiseless,
         color="b",
         alpha=0.2,
         label='model uncertainity'
     )
 
-    plt.plot(test.x, np.array(y_pred_mean_samples)[:,:,0].T, "C0", linewidth=0.5)
+    # plt.plot(test.x, np.array(y_pred_mean_samples)[:,:,0].T, "C0", linewidth=0.5)
 
     plt.plot(test.x, test.y, color='orange', label='sample function')
     plt.legend()
@@ -131,7 +137,7 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_
         model, x_test_norm, 50, predict, normal_train
     )
     y_pred_mean_samples = [
-        get_regression_results(model, x_test_norm, 1, predict, normal_train)
+        get_regression_results(model, x_test_norm, 2, predict, normal_train)
         for _ in range(10)]
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
