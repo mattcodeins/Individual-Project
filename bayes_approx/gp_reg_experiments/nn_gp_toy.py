@@ -51,8 +51,8 @@ if __name__ == "__main__":
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     x_dim, y_dim = 1, 1
-    h_dim = 100
-    layer_sizes = [x_dim, h_dim, h_dim, h_dim, y_dim]
+    h_dim = 50
+    layer_sizes = [x_dim, h_dim, h_dim, y_dim]
     activation = nn.ReLU()
     layer_kwargs = {'prior_weight_std': 1.0,
                     'prior_bias_std': 1.0,
@@ -60,7 +60,7 @@ if __name__ == "__main__":
                     'init_std': 0,
                     'device': device}
     model = make_linear_nn(layer_sizes, activation=activation, **layer_kwargs)
-    log_noise_var = torch.ones(size=(), device=device)*-3.0  # Gaussian likelihood
+    log_noise_var = torch.ones(size=(), device=device)*-4.6  # Gaussian likelihood
     print("BNN architecture: \n", model)
 
     d.plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_std,

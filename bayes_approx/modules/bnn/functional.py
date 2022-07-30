@@ -4,6 +4,8 @@ from modules.bnn.modules.linear import BayesLinear
 from modules.bnn.modules.emp_linear import EmpBayesLinear
 from modules.bnn.modules.ext_emp_linear import ExtEmpBayesLinear
 from modules.bnn.modules.marglikgrad_linear import MLGBayesLinear
+from modules.bnn.modules.cm_linear import CMBayesLinear
+from modules.bnn.modules.cmv_linear import CMVBayesLinear
 
 
 def _gaussian_kl(mean_q, std_q, mean_p, std_p):
@@ -49,6 +51,50 @@ def nelbo(model, loss_args, minibatch_ratio, nll_loss, kl_loss):
     nelbo = nll + kl
 
     return nelbo, nll, kl
+
+
+def _cml(post_mean, post_std, alpha, gamma):
+    gamma = gamma.flatten()[0]
+    alpha_reg = gamma / (gamma + alpha)
+    cml = ((post_std**2 + alpha_reg*post_mean**2) / gamma
+           - torch.log(post_std**2) - torch.log(alpha_reg) - 1)
+    return cml.sum()/2
+
+
+def cm_loss(model):
+    device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
+    cml = torch.Tensor([0]).to(device)
+    cml_sum = torch.Tensor([0]).to(device)
+    for m in model.modules():
+        if (isinstance(m, (CMBayesLinear))):
+            cml = _cml(m.weight_mean, m.weight_std, m.prior_mean_hyperstd, m.prior_weight_std)
+            cml_sum += cml
+            if m.bias:
+                cml = _cml(m.bias_mean, m.bias_std, m.prior_mean_hyperstd, m.prior_bias_std)
+                cml_sum += cml
+    return cml_sum
+
+
+def _cmvl(post_mean, post_std, alpha, beta, t):
+    delta = t/(1+t)
+    cmvl = ((alpha + 1/2)*torch.log(beta + delta*post_mean**2/2 + post_std**2/2)
+            - torch.log(post_std) - torch.lgamma(alpha + 1/2) + torch.lgamma(alpha)
+            - alpha*torch.log(beta) - torch.log(delta))
+    return cmvl.sum()
+
+
+def cmv_loss(model):
+    device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
+    cmvl = torch.Tensor([0]).to(device)
+    cmvl_sum = torch.Tensor([0]).to(device)
+    for m in model.modules():
+        if (isinstance(m, (CMVBayesLinear))):
+            cmvl = _cmvl(m.weight_mean, m.weight_std, m.hyperprior_alpha, m.hyperprior_beta, m.hyperprior_t)
+            cmvl_sum += cmvl
+            if m.bias:
+                cmvl = _cmvl(m.bias_mean, m.bias_std, m.hyperprior_alpha, m.hyperprior_beta, m.hyperprior_t)
+                cmvl_sum += cmvl
+    return cmvl_sum
 
 
 def prior_regularisation(model):
