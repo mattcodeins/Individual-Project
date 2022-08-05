@@ -2,6 +2,10 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
+
+
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 
 class regression_data(Dataset):
@@ -52,8 +56,8 @@ def import_dataset(fname):
 
 def import_train_test():
     noise_std = 0.1
-    train = import_dataset('bayes_approx/datasets/gp_reg_dataset/training_sample_points.csv')
-    test = import_dataset('bayes_approx/datasets/gp_reg_dataset/sample_function.csv')
+    train = import_dataset(f'bayes_approx/datasets/gp_reg_dataset/training_sample_points{noise_std}.csv')
+    test = import_dataset(f'bayes_approx/datasets/gp_reg_dataset/sample_function{noise_std}.csv')
     return train, test, noise_std
 
 
@@ -75,19 +79,16 @@ def create_regression_dataset():
     return train_loader, test_loader, normalised_train, test, noise_std
 
 
-def get_regression_results(model, x, K, predict, dataset, log_noise_var=None):
-    if K > 1:
-        y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
-    else:
-        return unnormalise_data(to_numpy(model(x)), dataset.y_mean, dataset.y_std)
+def get_regression_results(model, x, predict, dataset, K=50, log_noise_var=None):
+    y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
     if log_noise_var is not None:
         # total uncertainty: here the preditive std needs to count for output noise variance
         y_pred_std = (y_pred_std**2 + torch.exp(log_noise_var)).sqrt()
     # unnormalise
-    # y_pred_mean = unnormalise_data(to_numpy(y_pred_mean), dataset.y_mean, dataset.y_std)
-    y_pred_mean = unnormalise_data(y_pred_mean, dataset.y_mean, dataset.y_std)
-    # y_pred_std = unnormalise_data(to_numpy(y_pred_std), 0.0, dataset.y_std)
-    y_pred_std = unnormalise_data(y_pred_std, 0.0, dataset.y_std)
+    y_pred_mean = unnormalise_data(to_numpy(y_pred_mean), dataset.y_mean, dataset.y_std)
+    # y_pred_mean = unnormalise_data(y_pred_mean, dataset.y_mean, dataset.y_std)
+    y_pred_std = unnormalise_data(to_numpy(y_pred_std), 0.0, dataset.y_std)
+    # y_pred_std = unnormalise_data(y_pred_std, 0.0, dataset.y_std)
     return y_pred_mean, y_pred_std
 
 
@@ -101,20 +102,20 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
     plt.plot(test.x, y_pred_mean, "C0", lw=2, label='prediction mean')
     plt.fill_between(
         test.x[:,0],
-        # y_pred_mean[:,0] - 1.96 * y_pred_std[:,0],  # 95% confidence interval
-        # y_pred_mean[:,0] + 1.96 * y_pred_std[:,0],
-        y_pred_mean - 1.96 * y_pred_std,  # 95% confidence interval
-        y_pred_mean + 1.96 * y_pred_std,
+        y_pred_mean[:,0] - 1.96 * y_pred_std[:,0],  # 95% confidence interval
+        y_pred_mean[:,0] + 1.96 * y_pred_std[:,0],
+        # y_pred_mean - 1.96 * y_pred_std,  # 95% confidence interval
+        # y_pred_mean + 1.96 * y_pred_std,
         color="C0",
         alpha=0.2,
         label='total uncertainity'
     )
     plt.fill_between(
         test.x[:,0],
-        # y_pred_mean[:,0] - 1.96 * y_pred_std_noiseless[:,0],  # 95% confidence interval
-        # y_pred_mean[:,0] + 1.96 * y_pred_std_noiseless[:,0],
-        y_pred_mean - 1.96 * y_pred_std_noiseless,  # 95% confidence interval
-        y_pred_mean + 1.96 * y_pred_std_noiseless,
+        y_pred_mean[:,0] - 1.96 * y_pred_std_noiseless[:,0],  # 95% confidence interval
+        y_pred_mean[:,0] + 1.96 * y_pred_std_noiseless[:,0],
+        # y_pred_mean - 1.96 * y_pred_std_noiseless,  # 95% confidence interval
+        # y_pred_mean + 1.96 * y_pred_std_noiseless,
         color="b",
         alpha=0.2,
         label='model uncertainity'
@@ -128,21 +129,21 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
     plt.show()
 
 
-def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_std, title, device):
+def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, title, device=device):
     # plot the BNN prior in function space
     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
 
     y_pred_mean, y_pred_std_noiseless = get_regression_results(
-        model, x_test_norm, 50, predict, normal_train
+        model, x_test_norm, predict, normal_train
     )
     y_pred_mean_samples = [
-        get_regression_results(model, x_test_norm, 2, predict, normal_train)
+        get_regression_results(model, x_test_norm, predict, normal_train, K=1)
         for _ in range(10)]
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title)
-    print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
+    print(model_noise_std, y_pred_std_noiseless.mean())
 
 
 def plot_training_loss(logs):
@@ -154,6 +155,21 @@ def plot_training_loss(logs):
     ax1.set_title('nll')
     ax2.set_title('kl')
     plt.show()
+
+
+def test_step(model, dataloader, normal_train, predict):
+    """
+    Calculate accuracy on test set.
+    """
+    model.eval()
+    tloss = 0
+    with torch.no_grad():
+        for x_test, y_test in dataloader:
+            x_test_norm = normalise_data(x_test, normal_train.x_mean, normal_train.x_std).float()
+            y_pred_mean, _ = get_regression_results(model, x_test_norm, predict, normal_train)
+            tloss += F.mse_loss(torch.from_numpy(y_pred_mean), y_test)
+    # print('\nTest set: MSE: {}'.format(tloss))
+    return tloss
 
 
 # def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title=''):
@@ -190,6 +206,25 @@ def plot_training_loss(logs):
 
 
 if __name__ == '__main__':
-    train, test, _ = import_train_test()
-    print(train.shape)
-    print(test.shape)
+    train_loader, test_loader, train, test, noise_std = create_regression_dataset()
+
+    x_train = unnormalise_data(train.x, train.x_mean, train.x_std)
+    y_train = unnormalise_data(train.y, train.y_mean, train.y_std)
+    # first for the total uncertainty (model/epistemic + data/aleatoric)
+    plt.figure(figsize=(12, 6))
+    plt.plot(test.x, test.y)
+    plt.plot(x_train, y_train, "kx", mew=2, label='noisy sample points')
+    plt.fill_between(
+        test.x[:,0],
+        # y_pred_mean[:,0] - 1.96 * y_pred_std[:,0],  # 95% confidence interval
+        # y_pred_mean[:,0] + 1.96 * y_pred_std[:,0],
+        test.y[:,0] - 1.96 * 0.1,  # 95% confidence interval
+        test.y[:,0] + 1.96 * 0.1,
+        color="C0",
+        alpha=0.2,
+        label='noise uncertainity (95% ci)'
+    )
+    plt.plot(test.x, test.y, color='orange', label='sample function')
+    plt.legend()
+    plt.title('GP Sample Function Regression Dataset')
+    plt.show()
