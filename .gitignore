@@ -1,6 +1,6 @@
 __pycache__/
 ~
 .vscode/
-datasets/MNIST/
-results/
-saved_models/
+bayes_approx/datasets/MNIST/
+bayes_approx/results/
+bayes_approx/saved_models/
