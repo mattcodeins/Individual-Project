@@ -29,7 +29,7 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, beta, device)
         lr_sch.step()
         if (i+1) % 1000 == 0:
-            logs = logging(model, logs, i, loss, nll, kl)
+            logs = logging(model, logs, i, loss, nll, kl, beta)
             torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
             write_logs_to_file(logs, filename)
             if beta is None:
@@ -92,7 +92,7 @@ def classif_test_step(model, nelbo, dataloader, device=device):
     ))
 
 
-def regres_test_step(model, dataloader, device=device):
+def regres_test_step(model, dataloader, train_mean, train_std, device=device):
     """
     Calculate accuracy on test set.
     """
@@ -101,7 +101,9 @@ def regres_test_step(model, dataloader, device=device):
     with torch.no_grad():
         for x_test, y_test in dataloader:
             m, _ = predict(model, x_test.reshape((x_test.shape[0],-1)), K=50)
+            print((m - y_test).sum())
             tloss += F.mse_loss(m, y_test)
+            print(tloss)
     print('\nTest set: MSE: {}'.format(tloss))
     return tloss
 
@@ -110,6 +112,9 @@ def predict(model, x_test, K=1, device=device):
     """
     Monte Carlo sampling of BNN using K samples.
     """
+    if K == 1:
+        return model(x_test.to(device)), torch.tensor([0])
+
     y_pred = []
     for _ in range(K):
         y_pred.append(model(x_test.to(device)))
