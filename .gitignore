@@ -2,3 +2,5 @@ __pycache__/
 ~
 .vscode/
 datasets/MNIST/
+results/
+saved_models/
