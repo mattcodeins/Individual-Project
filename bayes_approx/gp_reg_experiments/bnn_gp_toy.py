@@ -39,8 +39,7 @@ model = make_linear_bnn(layer_sizes, activation, **layer_kwargs)
 log_noise_var = torch.ones(size=(), device=device)*-4.6  # Gaussian likelihood -4.6 == std 0.1
 print("BNN architecture: \n", model)
 
-d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
-                     'BNN init (before training, MFVI)', device)
+d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'BNN init (before training, MFVI)', device)
 
 # training hyperparameters
 learning_rate = 1e-3
@@ -59,5 +58,4 @@ logs = training_loop(
 )
 plot_training_loss(logs)
 
-d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
-                     'BNN approx. posterior (MFVI)', device)
+d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'BNN approx. posterior (MFVI)', device)

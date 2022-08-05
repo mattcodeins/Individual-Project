@@ -37,9 +37,9 @@ print(sample.numpy().mean(0))
 
 plt.scatter(xx, sample, marker='x')
 
-x1 = np.random.randn(80, 1) * 0.04 + 0.2
-x2 = np.random.randn(40, 1) * 0.04 + 0.5
-x3 = np.random.randn(80, 1) * 0.04 + 0.8
+x1 = np.random.randn(40, 1) * 0.04 + 0.2
+x2 = np.random.randn(20, 1) * 0.04 + 0.5
+x3 = np.random.randn(40, 1) * 0.04 + 0.8
 xt = np.sort(np.concatenate([x1, x2, x3], axis=0),0)
 sample2 = sample.numpy().take((xt[:,0] * 1000).astype(int))
 
@@ -53,5 +53,5 @@ plt.scatter(xt, sample2)
 plt.show()
 
 path = 'bayes_approx/datasets/gp_reg_dataset/'
-np.savetxt(path + 'sample_function.csv', np.dstack((xx[:,0], sample))[0], delimiter=',')
-np.savetxt(path + 'training_sample_points.csv', np.dstack((xt[:,0], sample2))[0], delimiter=',')
+np.savetxt(path + 'sample_function0.1.csv', np.dstack((xx[:,0], sample))[0], delimiter=',')
+np.savetxt(path + 'training_sample_points0.1.csv', np.dstack((xt[:,0], sample2))[0], delimiter=',')

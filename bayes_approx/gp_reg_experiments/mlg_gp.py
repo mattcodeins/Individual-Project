@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
-import torchvision
 import numpy as np
 import logging
-# import matplotlib.pyplot as plt
+import csv
 
 import os
 import sys
@@ -59,19 +58,24 @@ x_dim, y_dim = 1, 1
 h_dim = 100
 layer_sizes = [x_dim, h_dim, h_dim, y_dim]
 layer_kwargs = {'device': device}
-model = make_linear_nn(layer_sizes, **layer_kwargs)
+model = make_linear_nn(layer_sizes).to(device)
 print("BNN architecture: \n", model)
 
 # d.plot_bnn_pred_post(lap, predict, train, test, log_noise_var, noise_std,
 #                      'BNN init (before training, MFVI)', device)
 
+logging.basicConfig(level=logging.INFO)
+
 lap, model, margliks, losses = marglik_optimization(
     model, train_loader, likelihood='regression', sigma_noise_init=0.05, backend=BackPackGGN,
-    laplace=KronLaplace, n_epochs=100
+    laplace=KronLaplace, n_epochs=10
 )
 
 d.plot_bnn_pred_post(lap, predict, train, test, np.log(lap.sigma_noise), noise_std,
                      'BNN approx. posterior (MFVI)', device)
 
-# print(margliks)
-# print(losses)
+with open(f"./bayes_approx/results/{experiment_name}.csv", 'w') as f:
+    writer = csv.writer(f)
+    writer.writerow(['margliks', 'losses'])
+    writer.writerows([margliks, losses])
+    f.close()
