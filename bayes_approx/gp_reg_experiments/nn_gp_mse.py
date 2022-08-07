@@ -188,8 +188,3 @@ for weight_decay in weight_decay_list:
                 best_model = {'weight_decay': weight_decay, 'num_layers': num_layers, 'height': height}
                 best_loss = t_val_loss
             print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')
-=======
-    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'FFNN prediction function (3 hidden layers)')
-
-    d.test_step(model, test_loader, train, predict)
->>>>>>> 57e04aa8044b1401638fbfde10f985cb803a4860
