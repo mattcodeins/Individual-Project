@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import KFold
 
 import os
 import sys
@@ -32,7 +33,7 @@ def train_step(model, opt, nll, dataloader, device):
     return tloss
 
 
-def FULL_TRAINING(N_EPOCHS, NUM_LAYERS, WEIGHT_DECAY):
+def full_training(num_layers=2, weight_decay=0):
     torch.manual_seed(1)
 
     # import dataset
@@ -42,7 +43,7 @@ def FULL_TRAINING(N_EPOCHS, NUM_LAYERS, WEIGHT_DECAY):
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     x_dim, y_dim = 1, 1
     h_dim = 50
-    layer_sizes = [x_dim] + [h_dim for _ in range(NUM_LAYERS)] + [y_dim]
+    layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
     activation = nn.ReLU()
     layer_kwargs = {'prior_weight_std': 1.0,
                     'prior_bias_std': 1.0,
@@ -50,7 +51,6 @@ def FULL_TRAINING(N_EPOCHS, NUM_LAYERS, WEIGHT_DECAY):
                     'init_std': 0,
                     'device': device}
     model = make_linear_nn(layer_sizes, activation=activation, **layer_kwargs)
-    log_noise_var = torch.ones(size=(), device=device)*-999  # Equivalent to std 0.05
     print("BNN architecture: \n", model)
 
     # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
@@ -59,7 +59,7 @@ def FULL_TRAINING(N_EPOCHS, NUM_LAYERS, WEIGHT_DECAY):
     # training hyperparameters
     learning_rate = 1e-3
     params = list(model.parameters())
-    opt = torch.optim.Adam(params, lr=learning_rate, weight_decay=WEIGHT_DECAY)
+    opt = torch.optim.Adam(params, lr=learning_rate, weight_decay=weight_decay)
     # lr_sch = torch.optim.lr_scheduler.StepLR(opt, 4000, gamma=0.1)
 
     mse = nn.MSELoss()
@@ -67,7 +67,7 @@ def FULL_TRAINING(N_EPOCHS, NUM_LAYERS, WEIGHT_DECAY):
     # training loop
     model.train()
     logs = []
-    for i in range(N_EPOCHS):
+    for i in range(60000):
         loss = train_step(
             model, opt, mse, train_loader, device=device
         )
@@ -83,12 +83,109 @@ def FULL_TRAINING(N_EPOCHS, NUM_LAYERS, WEIGHT_DECAY):
     plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
     plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
     plt.xlabel('epoch')
-    plt.title('training loss (3 hidden layers)')
+    plt.title(f'training loss ({num_layers} hidden layers)')
     plt.legend()
+
     plt.ylim(0, 0.6)
     plt.show()
     # plt.savefig('.png')
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'FFNN prediction function (3 hidden layers)')
+    d.plot_bnn_pred_post(model, predict, train, test, f'FFNN prediction function ({num_layers} hidden layers)')
 
     d.test_step(model, test_loader, train, predict)
+
+
+def hyper_training_iter(train_loader, test_loader, train, test, num_layers, height, weight_decay):
+    # torch.manual_seed(1)
+
+    # create bnn
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    x_dim, y_dim = 1, 1
+    layer_sizes = [x_dim] + [height for _ in range(num_layers)] + [y_dim]
+    activation = nn.ReLU()
+    layer_kwargs = {'prior_weight_std': 1.0,
+                    'prior_bias_std': 1.0,
+                    'sqrt_width_scaling': False,
+                    'init_std': 0,
+                    'device': device}
+    model = make_linear_nn(layer_sizes, activation=activation, **layer_kwargs)
+    # print("BNN architecture: \n", model)
+
+    # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
+    #                      'FFNN init (before training, 2 hidden layers)', device)
+
+    # training hyperparameters
+    learning_rate = 1e-3
+    params = list(model.parameters())
+    opt = torch.optim.Adam(params, lr=learning_rate, weight_decay=weight_decay)
+    # lr_sch = torch.optim.lr_scheduler.StepLR(opt, 4000, gamma=0.1)
+
+    mse = nn.MSELoss()
+
+    # training loop
+    model.train()
+    logs = []
+    losses = []
+    for i in range(30000):
+        losses.append(float(train_step(
+            model, opt, mse, train_loader, device=device))
+        )
+        if (i+1) % 5000 == 0:
+            with torch.no_grad():
+                train_loss_avg = sum(losses[-1000:])/1000
+                test_mse = d.test_step(model, test_loader, train, predict)
+                logs.append([train_loss_avg] + [to_numpy(test_mse)])
+                print("Epoch {}, train_mse={}, test_mse={}".format(i+1, logs[-1][0], logs[-1][1]))
+
+    logs = np.array(logs)
+
+    # # plot the training curve
+    # plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
+    # plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
+    # plt.xlabel('epoch')
+    # plt.title(f'training loss ({num_layers} hidden layers)')
+    # plt.legend()
+
+    # plt.ylim(0, 0.6)
+    # plt.show()
+    # # plt.savefig('.png')
+
+    # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
+    #                      f'FFNN prediction function ({num_layers} hidden layers)')
+
+    return d.test_step(model, test_loader, train, predict)
+
+
+# CROSS_VAL
+n_splits = 5
+weight_decay_list = [1e-2, 1e-4, 1e-6]
+num_layers_list = [1, 2, 3, 4]
+height_list = [50, 100]
+kf = KFold(n_splits=n_splits, shuffle=True)
+
+(train_loader_list, val_loader_list, test_loader,
+ normalised_train_list, val_list, test, noise_std) = d.create_regression_dataset_kf(kf)
+
+best_wd_loss = best_nl_loss = best_h_loss = best_loss = float('inf')
+for weight_decay in weight_decay_list:
+    for num_layers in num_layers_list:
+        for height in height_list:
+            t_val_loss = 0
+            for i in range(n_splits):
+                t_val_loss += hyper_training_iter(train_loader_list[i], val_loader_list[i],
+                                                  normalised_train_list[i], val_list[i],
+                                                  num_layers, height, weight_decay)/n_splits
+            print(f'Current Model CV Result: wd={weight_decay}, nl={num_layers}, h={height}, cv_loss={t_val_loss}')
+            if t_val_loss < best_wd_loss:
+                best_wd = weight_decay
+                best_wd_loss = t_val_loss
+            if t_val_loss < best_nl_loss:
+                best_nl = num_layers
+                best_nl_loss = t_val_loss
+            if t_val_loss < best_h_loss:
+                best_h = height
+                best_h_loss = t_val_loss
+            if t_val_loss < best_loss:
+                best_model = {'weight_decay': weight_decay, 'num_layers': num_layers, 'height': height}
+                best_loss = t_val_loss
+            print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')

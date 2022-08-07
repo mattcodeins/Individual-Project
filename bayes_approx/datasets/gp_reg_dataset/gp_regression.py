@@ -79,6 +79,42 @@ def create_regression_dataset():
     return train_loader, test_loader, normalised_train, test, noise_std
 
 
+def create_regression_dataset_kf(kf):
+    train, test, noise_std = import_train_test()
+    train_x = train[:,0].reshape(-1,1); train_y = train[:,1].reshape(-1,1)
+    test_x = test[:,0].reshape(-1,1); test_y = test[:,1].reshape(-1,1)
+
+    # kf split
+    normalised_train_list = []
+    val_list = []
+    train_loader_list = []
+    val_loader_list = []
+    for train_index, val_index in kf.split(train_x):
+        kf_train_x = train_x[train_index]
+        kf_train_y = train_y[train_index]
+        kf_val_x = train_x[val_index]
+        kf_val_y = train_y[val_index]
+
+        # plt.scatter(kf_train_x, kf_train_y)
+        # plt.scatter(kf_val_x, kf_val_y)
+
+        normalised_train_list.append(regression_data(kf_train_x, kf_train_y))
+        val_list.append(regression_data(kf_val_x, kf_val_y, normalise=False))
+
+        train_loader_list.append(DataLoader(normalised_train_list[-1], batch_size=50, shuffle=True))
+        val_loader_list.append(DataLoader(val_list[-1], batch_size=50, shuffle=True))
+
+    test = regression_data(test_x, test_y, normalise=False)
+
+    # plt.plot(test_x, test_y, '-k', label='ground-truth')
+    # plt.legend()
+    # plt.title('ground-truth function')
+    # plt.show()
+
+    test_loader = DataLoader(test, batch_size=1000, shuffle=True)
+    return train_loader_list, val_loader_list, test_loader, normalised_train_list, val_list, test, noise_std
+
+
 def get_regression_results(model, x, predict, dataset, K=50, log_noise_var=None):
     y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
     if log_noise_var is not None:
