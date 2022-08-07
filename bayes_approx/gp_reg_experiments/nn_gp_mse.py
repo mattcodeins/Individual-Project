@@ -18,7 +18,6 @@ from modules.bnn.utils import *
 
 # OPTIMISE = True
 
-
 def train_step(model, opt, nll, dataloader, device):
     # global OPTIMISE
     tloss = 0
@@ -44,7 +43,6 @@ def full_training(num_layers=2, weight_decay=0):
     x_dim, y_dim = 1, 1
     h_dim = 50
     layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
-    activation = nn.ReLU()
     layer_kwargs = {'prior_weight_std': 1.0,
                     'prior_bias_std': 1.0,
                     'sqrt_width_scaling': False,
@@ -88,7 +86,6 @@ def full_training(num_layers=2, weight_decay=0):
     plt.ylim(0, 0.6)
     plt.show()
     # plt.savefig('.png')
-
     # d.plot_bnn_pred_post(model, predict, train, test, f'FFNN prediction function ({num_layers} hidden layers)')
 
     d.test_step(model, test_loader, train, predict)

@@ -115,7 +115,6 @@ def create_regression_dataset_kf(kf):
     return train_loader_list, val_loader_list, test_loader, normalised_train_list, val_list, test, noise_std
 
 
-
 def get_regression_results(model, x, predict, dataset, K=50, log_noise_var=None):
     y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
     if log_noise_var is not None:
