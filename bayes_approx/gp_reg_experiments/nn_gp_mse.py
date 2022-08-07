@@ -18,6 +18,7 @@ from modules.bnn.utils import *
 
 # OPTIMISE = True
 
+
 def train_step(model, opt, nll, dataloader, device):
     # global OPTIMISE
     tloss = 0
@@ -32,7 +33,7 @@ def train_step(model, opt, nll, dataloader, device):
     return tloss
 
 
-def full_training(num_layers=2, weight_decay=0):
+def full_training(num_layers=2, h_dim=50, weight_decay=0):
     torch.manual_seed(1)
 
     # import dataset
@@ -41,8 +42,8 @@ def full_training(num_layers=2, weight_decay=0):
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     x_dim, y_dim = 1, 1
-    h_dim = 50
     layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
+    activation = nn.ReLU()
     layer_kwargs = {'prior_weight_std': 1.0,
                     'prior_bias_std': 1.0,
                     'sqrt_width_scaling': False,
@@ -51,8 +52,9 @@ def full_training(num_layers=2, weight_decay=0):
     model = make_linear_nn(layer_sizes, activation=activation, **layer_kwargs)
     print("BNN architecture: \n", model)
 
-    # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
-    #                      'FFNN init (before training, 2 hidden layers)', device)
+    log_noise_var = nn.Parameter(torch.ones(size=(), device=device)*-9999)  # Equivalent to std 0.05
+    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
+                         'FFNN init (before training, 2 hidden layers)', device)
 
     # training hyperparameters
     learning_rate = 1e-3
@@ -86,7 +88,7 @@ def full_training(num_layers=2, weight_decay=0):
     plt.ylim(0, 0.6)
     plt.show()
     # plt.savefig('.png')
-    # d.plot_bnn_pred_post(model, predict, train, test, f'FFNN prediction function ({num_layers} hidden layers)')
+    d.plot_bnn_pred_post(model, predict, train, test, f'FFNN prediction function ({num_layers} hidden layers)')
 
     d.test_step(model, test_loader, train, predict)
 
