@@ -157,8 +157,8 @@ def hyper_training_iter(train_loader, test_loader, train, test, num_layers, heig
 
 def nn_cross_val():
     n_splits = 5
-    weight_decay_list = [1e-5, 1e-7]
-    num_layers_list = [1, 3, 4]
+    weight_decay_list = [1e-4, 1e-6]
+    num_layers_list = [1, 4]
     height_list = [50]
     kf = KFold(n_splits=n_splits, shuffle=True)
 
@@ -194,5 +194,6 @@ def nn_cross_val():
 
 
 if __name__ == '__main__':
-    # full_training(num_layers=1, h_dim=100, weight_decay=1e-6)
+    # full_training(num_layers=1, h_dim=50, weight_decay=1e-6)
     nn_cross_val()
+    # nn_cross_val()
