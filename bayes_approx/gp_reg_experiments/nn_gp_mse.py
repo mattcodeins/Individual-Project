@@ -157,8 +157,8 @@ def hyper_training_iter(train_loader, test_loader, train, test, num_layers, heig
 
 def nn_cross_val():
     n_splits = 5
-    weight_decay_list = [1e-4, 1e-6]
-    num_layers_list = [1, 4]
+    weight_decay_list = [1e-4, 1e-5, 1e-6]
+    num_layers_list = [1, 3, 4]
     height_list = [50]
     kf = KFold(n_splits=n_splits, shuffle=True)
 
