@@ -42,10 +42,10 @@ def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50,
     d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'BNN init (before training, MFVI)', device)
 
     # training hyperparameters
-    learning_rate = 1e-3
+    learning_rate = 1e-2
     params = list(model.parameters())  # + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
-    lr_sch = torch.optim.lr_scheduler.StepLR(opt, 4000, gamma=0.1)
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, 10000, gamma=0.1)
 
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
     kl_loss = GaussianKLLoss()
@@ -65,5 +65,5 @@ def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50,
 
 if __name__ == "__main__":
     print(full_training(
-        n_epochs=30000, num_layers=4, h_dim=50, prior_weight_std=1.0, prior_bias_std=1.0, init_std=0.1
+        n_epochs=100000, num_layers=4, h_dim=50, prior_weight_std=1.0, prior_bias_std=1.0, init_std=0.1
     ))
