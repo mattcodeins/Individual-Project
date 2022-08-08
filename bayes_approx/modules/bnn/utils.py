@@ -1,3 +1,4 @@
+from pickle import NONE
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -21,21 +22,23 @@ def to_numpy(x):
 
 
 # Methods below are for single ELBO objectives
-def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, beta, filename, device=device):
+def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader, beta,
+                  test_step=None, train=None, filename=None, device=device):
     model.train()
     logs = []
     for i in range(N_epochs):
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, beta, device)
         lr_sch.step()
-        if (i+1) % 1000 == 0:
+        if (i+1) % 5000 == 0:
             logs = logging(model, logs, i, loss, nll, kl, beta)
-            torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
-            write_logs_to_file(logs, filename)
+            if filename is not None:
+                torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
+                write_logs_to_file(logs, filename)
             if beta is None:
                 classif_test_step(model, nelbo, test_loader, device=device)
             else:
-                regres_test_step(model, test_loader, device=device)
+                test_step(model, train_loader, train, predict)
 
     logs = np.array(logs)
     return logs
@@ -92,32 +95,16 @@ def classif_test_step(model, nelbo, dataloader, device=device):
     ))
 
 
-def regres_test_step(model, dataloader, train_mean, train_std, device=device):
-    """
-    Calculate accuracy on test set.
-    """
-    model.eval()
-    tloss = 0
-    with torch.no_grad():
-        for x_test, y_test in dataloader:
-            m, _ = predict(model, x_test.reshape((x_test.shape[0],-1)), K=50)
-            print((m - y_test).sum())
-            tloss += F.mse_loss(m, y_test)
-            print(tloss)
-    print('\nTest set: MSE: {}'.format(tloss))
-    return tloss
-
-
-def predict(model, x_test, K=1, device=device):
+def predict(model, x, K=50, device=device):
     """
     Monte Carlo sampling of BNN using K samples.
     """
     if K == 1:
-        return model(x_test.to(device)), torch.tensor([0])
+        return model(x.to(device)), torch.tensor([0])
 
     y_pred = []
     for _ in range(K):
-        y_pred.append(model(x_test.to(device)))
+        y_pred.append(model(x.to(device)))
     # shape (K, batch_size, y_dim) or (batch_size, y_dim) if K = 1
     y_pred = torch.stack(y_pred, dim=0).squeeze(0)
     return y_pred.mean(0), y_pred.std(0)
@@ -249,6 +236,8 @@ def write_logs_to_file(logs, name):
 
 
 def uniquify(name):
+    if name is None:
+        return None
     counter = 1
     while os.path.exists("bayes_approx/results/" + name + ".csv"):
         name = name + "_" + str(counter)
