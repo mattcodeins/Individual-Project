@@ -91,7 +91,7 @@ def full_training(num_layers=2, h_dim=50, weight_decay=0):
     d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
                          f'FFNN prediction function ({num_layers} hidden layers)')
 
-    d.test_step(model, test_loader, train, predict)
+    return d.test_step(model, test_loader, train, predict)
 
 
 def hyper_training_iter(train_loader, test_loader, train, test, num_layers, height, weight_decay):

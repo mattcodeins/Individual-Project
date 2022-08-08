@@ -204,7 +204,7 @@ def test_step(model, dataloader, normal_train, predict):
             x_test_norm = normalise_data(x_test, normal_train.x_mean, normal_train.x_std).float()
             y_pred_mean, _ = get_regression_results(model, x_test_norm, predict, normal_train)
             tloss += F.mse_loss(torch.from_numpy(y_pred_mean), y_test)
-    # print('\nTest set: MSE: {}'.format(tloss))
+    print('\nTest set: MSE: {}'.format(tloss))
     return tloss
 
 
