@@ -42,7 +42,7 @@ def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50,
     d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'BNN init (before training, MFVI)', device)
 
     # training hyperparameters
-    learning_rate = 1e-3
+    learning_rate = 1e-2
     params = list(model.parameters())  # + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
     lr_sch = torch.optim.lr_scheduler.StepLR(opt, 4000, gamma=0.1)

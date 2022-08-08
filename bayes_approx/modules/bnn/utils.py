@@ -26,19 +26,26 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
                   test_step=None, train=None, filename=None, device=device):
     model.train()
     logs = []
+    losses = []; nlls = []; kls = []
     for i in range(N_epochs):
         # train step is whole training dataset (minibatched inside function)
         loss, nll, kl = train_step(model, opt, nelbo, train_loader, beta, device)
+        losses.append(float(loss))
+        nlls.append(float(nll))
+        kls.append(float(kl))
         lr_sch.step()
-        if (i+1) % 5000 == 0:
-            logs = logging(model, logs, i, loss, nll, kl, beta)
+        if (i+1) % 1000 == 0:
+            avgloss = sum(losses[-1000:])/1000
+            avgnll = sum(nlls[-1000:])/1000
+            avgkl = sum(kls[-1000:])/1000
+            logs = logging(model, logs, i, avgloss, avgnll, avgkl, beta)
             if filename is not None:
                 torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
                 write_logs_to_file(logs, filename)
             if beta is None:
                 classif_test_step(model, nelbo, test_loader, device=device)
             else:
-                test_step(model, train_loader, train, predict)
+                test_step(model, test_loader, train, predict)
 
     logs = np.array(logs)
     return logs
@@ -160,9 +167,9 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
     What we want to log depends on the learnable parameters.
     """
     if ml_loss is None:
-        loss_logs = [i+1, to_numpy(loss), to_numpy(nll), to_numpy(prior_reg)]
+        loss_logs = [i+1, loss, nll, prior_reg]
     else:
-        loss_logs = [i+1, to_numpy(loss), to_numpy(nll), to_numpy(prior_reg), to_numpy(ml_loss)]
+        loss_logs = [i+1, loss, nll, prior_reg, to_numpy(ml_loss)]
     first_layer = list(model.modules())[1]
     if isinstance(first_layer, (BayesLinear)):
         logs.append(loss_logs)
