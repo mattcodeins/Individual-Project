@@ -127,42 +127,30 @@ def bnn_cross_val():
     (train_loader_list, val_loader_list, test_loader,
         normalised_train_list, val_list, test, noise_std) = d.create_regression_dataset_kf(kf)
 
-    best_lv_loss = best_nl_loss = best_ps_loss = best_is_loss = best_loss = float('inf')
+    best_loss = float('inf')
     for init_std in init_std_list:
         for lik_var in lik_var_list:
             for num_layers in num_layers_list:
-                for prior_std in prior_std_list:
-                    t_val_loss = 0
-                    print(f'Current Model: lv={lik_var}, nl={num_layers}, ps={prior_std}')
-                    for i in range(n_splits):
-                        t_val_loss += hyper_training_iter(
-                            train_loader_list[i], val_loader_list[i],
-                            normalised_train_list[i], val_list[i],
-                            num_layers=num_layers, h_dim=50, activation='relu', init_std=init_std,
-                            likelihood_std=lik_var, prior_weight_std=prior_std, prior_bias_std=prior_std)/n_splits
-                    print(f'CV Loss={t_val_loss}')
-                    if t_val_loss < best_is_loss:
-                        best_is = init_std
-                    if t_val_loss < best_lv_loss:
-                        best_lv = lik_var
-                        best_lv_loss = t_val_loss
-                    if t_val_loss < best_nl_loss:
-                        best_nl = num_layers
-                        best_nl_loss = t_val_loss
-                    if t_val_loss < best_ps_loss:
-                        best_ps = prior_std
-                        best_ps_loss = t_val_loss
-                    if t_val_loss < best_loss:
-                        best_model = {'init_std': init_std, 'likelihood var': lik_var,
-                                      'num_layers': num_layers, 'prior std': prior_std}
-                        best_loss = t_val_loss
-                    print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')
-                    with open('bayes_approx/results/gp_bnn/auto_cross_val.txt', 'a') as f:
-                        f.write(f'{init_std} {lik_var} {num_layers} {prior_std} {t_val_loss} \n')
-    print(f'best likelihood var: {best_is}')
-    print(f'best likelihood var: {best_lv}')
-    print(f'best num of layers: {best_nl}')
-    print(f'best prior std: {best_ps}')
+                for prior_w_std in prior_w_std_list:
+                    for prior_b_std in prior_b_std_list:
+                        t_val_loss = 0
+                        print(f'Current Model: lv={lik_var}, nl={num_layers}, pws={prior_w_std}, pbs={prior_b_std}')
+                        for i in range(n_splits):
+                            t_val_loss += hyper_training_iter(
+                                train_loader_list[i], val_loader_list[i],
+                                normalised_train_list[i], val_list[i],
+                                num_layers=num_layers, h_dim=50, activation='relu',
+                                init_std=init_std, likelihood_std=lik_var,
+                                prior_weight_std=prior_w_std, prior_bias_std=prior_b_std)/n_splits
+                        print(f'CV Loss={t_val_loss}')
+                        if t_val_loss < best_loss:
+                            best_model = {'init_std': init_std, 'likelihood var': lik_var,
+                                          'num_layers': num_layers,
+                                          'prior w std': prior_w_std, 'prior b std': prior_b_std}
+                            best_loss = t_val_loss
+                        print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')
+                        with open('bayes_approx/results/gp_bnn/auto_cross_val.txt', 'a') as f:
+                            f.write(f'{init_std} {lik_var} {num_layers} {prior_w_std} {prior_b_std} {t_val_loss} \n')
 
 
 if __name__ == "__main__":
