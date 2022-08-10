@@ -119,12 +119,12 @@ def bnn_cross_val():
     n_splits = 5
     init_std_list = [0.02]
     lik_var_list = [0.02]
-    num_layers_list = [2, 3, 4]
-    prior_w_std_list = [2.0, 3.0]
-    prior_b_std_list = [5.0, 3.0]
+    num_layers_list = [2]
+    prior_w_std_list = [2.0, 1.0]
+    prior_b_std_list = [4.0, 6.0]
     kf = KFold(n_splits=n_splits, shuffle=True)
 
-    (train_loader_list, val_loader_list, test_loader,
+    (train_loader_list, val_loader_list, tesst_loader,
         normalised_train_list, val_list, test, noise_std) = d.create_regression_dataset_kf(kf)
 
     best_loss = float('inf')
@@ -154,7 +154,10 @@ def bnn_cross_val():
 
 
 if __name__ == "__main__":
-    print(full_training(
-        experiment_name="bnn_2l3pstd0.04initstd", n_epochs=40000,
-        num_layers=4, h_dim=50, prior_weight_std=8.0, prior_bias_std=8.0, init_std=0.03,
-    ))
+    # print(full_training(
+    #     experiment_name="bnn_2l3pstd0.04initstd", n_epochs=40000,
+    #     num_layers=4, h_dim=50, prior_weight_std=8.0, prior_bias_std=8.0, init_std=0.03,
+    # ))
+    # bnn_cross_val()
+    full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50, activation='relu',
+                  prior_weight_std=1.0, prior_bias_std=1.0, init_std=1.0)

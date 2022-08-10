@@ -34,7 +34,7 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
         nlls.append(float(nll))
         kls.append(float(kl))
         lr_sch.step()
-        if (i+1) % 2000 == 0:
+        if (i+1) % 1000 == 0:
             print(beta)
             avgloss = sum(losses[-1000:])/1000
             avgnll = sum(nlls[-1000:])/1000
