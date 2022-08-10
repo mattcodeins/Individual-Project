@@ -36,16 +36,16 @@ def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50,
                     'init_std': init_std,
                     'device': device}
     model = make_linear_bnn(layer_sizes, activation, **layer_kwargs)
-    log_noise_var = torch.ones(size=(), device=device)*-4.6  # Gaussian likelihood -4.6 == std 0.1
+    log_lik_var = torch.ones(size=(), device=device)*np.log(init_std**2)  # Gaussian likelihood -4.6 == std 0.1
     print("BNN architecture: \n", model)
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'BNN init (before training, MFVI)', device)
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN init (before training, MFVI)', device)
 
     # training hyperparameters
-    learning_rate = 1e-2
+    learning_rate = 1e-3
     params = list(model.parameters())  # + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
-    lr_sch = torch.optim.lr_scheduler.StepLR(opt, 4000, gamma=0.1)
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, 10000, gamma=0.1)
 
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
     kl_loss = GaussianKLLoss()
@@ -53,17 +53,18 @@ def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50,
     # nelbo = nELBO(nll_loss=gnll_loss, kl_loss=lambda a: torch.tensor([0]))
 
     logs = training_loop(
-        model, n_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_noise_var,
+        model, n_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_lik_var,
         d.test_step, train, experiment_name, device
     )
     plot_training_loss(logs)
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, 'BNN approx. posterior (MFVI)', device)
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN approx. posterior (MFVI)', device)
 
     return d.test_step(model, test_loader, train, predict)
 
 
 if __name__ == "__main__":
     print(full_training(
-        n_epochs=30000, num_layers=4, h_dim=50, prior_weight_std=1.0, prior_bias_std=1.0, init_std=0.1
+        experiment_name="bnn_2l3pstd0.04initstd", n_epochs=40000,
+        num_layers=4, h_dim=50, prior_weight_std=8.0, prior_bias_std=8.0, init_std=0.03,
     ))

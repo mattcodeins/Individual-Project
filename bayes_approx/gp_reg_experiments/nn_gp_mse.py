@@ -196,4 +196,3 @@ def nn_cross_val():
 if __name__ == '__main__':
     # full_training(num_layers=1, h_dim=50, weight_decay=1e-6)
     nn_cross_val()
-    # nn_cross_val()

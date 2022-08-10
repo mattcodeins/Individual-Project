@@ -157,7 +157,7 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
         label='model uncertainity'
     )
 
-    # plt.plot(test.x, np.array(y_pred_mean_samples)[:,:,0].T, "C0", linewidth=0.5)
+    plt.plot(test.x, np.array(y_pred_mean_samples)[:,:,0].T, "C0", linewidth=0.5)
 
     plt.plot(test.x, test.y, color='orange', label='sample function')
     plt.legend()
@@ -174,8 +174,9 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, title,
         model, x_test_norm, predict, normal_train
     )
     y_pred_mean_samples = [
-        get_regression_results(model, x_test_norm, predict, normal_train, K=1)
+        get_regression_results(model, x_test_norm, predict, normal_train, K=1)[0]
         for _ in range(10)]
+    print(np.array(y_pred_mean_samples).shape)
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title)
