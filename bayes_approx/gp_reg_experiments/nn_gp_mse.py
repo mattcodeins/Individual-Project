@@ -94,15 +94,15 @@ def full_training(num_layers=2, h_dim=50, weight_decay=0):
     return d.test_step(model, test_loader, train, predict)
 
 
-def hyper_training_iter(train_loader, test_loader, train, test, num_layers, height, weight_decay):
+def hyper_training_iter(train_loader, test_loader, train, test, num_layers, h_dim, weight_decay):
     # torch.manual_seed(1)
 
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     x_dim, y_dim = 1, 1
-    layer_sizes = [x_dim] + [height for _ in range(num_layers)] + [y_dim]
+    layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
     activation = nn.ReLU()
-    layer_kwargs = {'prior_weight_std': 1.0,
+    layer_kwargs = {'prior_weight_std': 1.0,  # doesn't actually have any purpose
                     'prior_bias_std': 1.0,
                     'sqrt_width_scaling': False,
                     'init_std': 0,
@@ -157,8 +157,8 @@ def hyper_training_iter(train_loader, test_loader, train, test, num_layers, heig
 
 def nn_cross_val():
     n_splits = 5
-    weight_decay_list = [1e-4, 1e-6]
-    num_layers_list = [1, 4]
+    weight_decay_list = [1e-4, 1e-5, 1e-6]
+    num_layers_list = [1, 3, 4]
     height_list = [50]
     kf = KFold(n_splits=n_splits, shuffle=True)
 

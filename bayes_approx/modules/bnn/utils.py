@@ -34,7 +34,8 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
         nlls.append(float(nll))
         kls.append(float(kl))
         lr_sch.step()
-        if (i+1) % 1000 == 0:
+        if (i+1) % 2000 == 0:
+            print(beta)
             avgloss = sum(losses[-1000:])/1000
             avgnll = sum(nlls[-1000:])/1000
             avgkl = sum(kls[-1000:])/1000
@@ -117,48 +118,49 @@ def predict(model, x, K=50, device=device):
     return y_pred.mean(0), y_pred.std(0)
 
 
-# Methods below are for seperate training and model selection objectives
-def ml_sep_training_loop(model, N_epochs, nn_opt, ml_opt, map_loss, ml_loss, train_loader, test_loader, filename, device=device):
-    model.train()
-    logs = []
-    for i in range(N_epochs):
-        # train step is whole training dataset (minibatched inside function)
-        loss, nll, prior_reg = train_step(model, nn_opt, map_loss, train_loader, device)
-        ml_loss = ml_train_step(model, ml_opt, ml_loss, train_loader, device)
+# # Methods below are for seperate training and model selection objectives
+# def ml_sep_training_loop(model, N_epochs, nn_opt, ml_opt, map_loss, ml_loss,
+#                          train_loader, test_loader, filename, device=device):
+#     model.train()
+#     logs = []
+#     for i in range(N_epochs):
+#         # train step is whole training dataset (minibatched inside function)
+#         loss, nll, prior_reg = train_step(model, nn_opt, map_loss, train_loader, device)
+#         ml_loss = ml_train_step(model, ml_opt, ml_loss, train_loader, device)
 
-        logs = logging(model, logs, i, loss, nll, prior_reg, beta, ml_loss)
+#         logs = logging(model, logs, i, loss, nll, prior_reg, beta, ml_loss)
 
-        if (i+1) % 10 == 0:
-            # torch.save(model.state_dict(), f'saved_models/{filename}.pt')
-            # write_logs_to_file(logs, filename)
-            test_step(model, map_loss, test_loader, device=device)
+#         if (i+1) % 10 == 0:
+#             # torch.save(model.state_dict(), f'saved_models/{filename}.pt')
+#             # write_logs_to_file(logs, filename)
+#             test_step(model, map_loss, test_loader, device=device)
 
-    logs = np.array(logs)
-    return logs
-
-
-def ml_train_step(model, opt, ml_approx, dataloader, device=device):
-    """
-    Minibatch gradient descent through entire training batch.
-    """
-    log_q = ml_approx(model)
+#     logs = np.array(logs)
+#     return logs
 
 
-    for _, (x, y) in enumerate(dataloader):
-        opt.zero_grad()
-        batch_size = x.shape[0]
-        minibatch_ratio = batch_size / len(dataloader.dataset)
-        x = x.to(device).reshape((batch_size, -1))
-        y = y.to(device)
-        y_pred = model(x)
-        loss, nll, kl = nelbo(model, (y_pred, y), minibatch_ratio)
-        loss.backward()
-        opt.step()
-        tloss += loss; tnll += nll; tkl += kl
-        # g = tv.make_dot(loss, params=dict(model.named_parameters()))
-        # g.filename = 'network.dot'
-        # g.render()
-    return tloss, tnll, tkl
+# def ml_train_step(model, opt, ml_approx, dataloader, device=device):
+#     """
+#     Minibatch gradient descent through entire training batch.
+#     """
+#     log_q = ml_approx(model)
+
+
+#     for _, (x, y) in enumerate(dataloader):
+#         opt.zero_grad()
+#         batch_size = x.shape[0]
+#         minibatch_ratio = batch_size / len(dataloader.dataset)
+#         x = x.to(device).reshape((batch_size, -1))
+#         y = y.to(device)
+#         y_pred = model(x)
+#         loss, nll, kl = nelbo(model, (y_pred, y), minibatch_ratio)
+#         loss.backward()
+#         opt.step()
+#         tloss += loss; tnll += nll; tkl += kl
+#         # g = tv.make_dot(loss, params=dict(model.named_parameters()))
+#         # g.filename = 'network.dot'
+#         # g.render()
+#     return tloss, tnll, tkl
 
 
 # General functions below
