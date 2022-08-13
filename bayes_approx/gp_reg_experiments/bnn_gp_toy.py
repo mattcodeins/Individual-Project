@@ -22,6 +22,8 @@ def full_training(experiment_name=None, n_epochs=10000,
                   num_layers=2, h_dim=50, activation='relu', init_std=0.1,
                   likelihood_std=0.1, prior_weight_std=1.0, prior_bias_std=1.0):
     torch.manual_seed(2)
+    if experiment_name == 'hyper':
+        experiment_name = 
     experiment_name = uniquify(experiment_name)
 
     # import dataset
