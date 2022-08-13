@@ -115,11 +115,11 @@ def create_regression_dataset_kf(kf):
     return train_loader_list, val_loader_list, test_loader, normalised_train_list, val_list, test, noise_std
 
 
-def get_regression_results(model, x, predict, dataset, K=50, log_noise_var=None):
+def get_regression_results(model, x, predict, dataset, K=50, log_lik_var=None):
     y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
-    if log_noise_var is not None:
+    if log_lik_var is not None:
         # total uncertainty: here the preditive std needs to count for output noise variance
-        y_pred_std = (y_pred_std**2 + torch.exp(log_noise_var)).sqrt()
+        y_pred_std = (y_pred_std**2 + torch.exp(log_lik_var)).sqrt()
     # unnormalise
     y_pred_mean = unnormalise_data(to_numpy(y_pred_mean), dataset.y_mean, dataset.y_std)
     # y_pred_mean = unnormalise_data(y_pred_mean, dataset.y_mean, dataset.y_std)
@@ -165,7 +165,7 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
     plt.show()
 
 
-def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, title, device=device):
+def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title, device=device):
     # plot the BNN prior in function space
     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
@@ -177,7 +177,7 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, title,
         get_regression_results(model, x_test_norm, predict, normal_train, K=1)[0]
         for _ in range(10)]
     print(np.array(y_pred_mean_samples).shape)
-    model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
+    model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_lik_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title)
     print(model_noise_std, y_pred_std_noiseless.mean())
@@ -194,7 +194,7 @@ def plot_training_loss(logs):
     plt.show()
 
 
-def test_step(model, dataloader, normal_train, predict):
+def test_step(model, dataloader, normal_train, predict, log_lik_var=None):
     """
     Calculate accuracy on test set.
     """
@@ -205,6 +205,25 @@ def test_step(model, dataloader, normal_train, predict):
             x_test_norm = normalise_data(x_test, normal_train.x_mean, normal_train.x_std).float()
             y_pred_mean, _ = get_regression_results(model, x_test_norm, predict, normal_train)
             tloss += F.mse_loss(torch.from_numpy(y_pred_mean), y_test)
+    print('\nTest set: MSE: {}'.format(tloss))
+    return tloss
+
+
+def gauss_test_step(model, dataloader, normal_train, predict, log_lik_var):
+    """
+    Calculate accuracy on test set.
+    """
+    model.eval()
+    tloss = 0
+    with torch.no_grad():
+        for x_test, y_test in dataloader:
+            x_test_norm = normalise_data(x_test, normal_train.x_mean, normal_train.x_std).float()
+            y_pred_mean, y_pred_std = get_regression_results(
+                model, x_test_norm, predict, normal_train, K=50, log_lik_var=log_lik_var
+            )
+            tloss += F.gaussian_nll_loss(
+                torch.from_numpy(y_pred_mean), y_test, torch.from_numpy(y_pred_std), full=True, reduction='sum'
+            )
     print('\nTest set: MSE: {}'.format(tloss))
     return tloss
 
@@ -229,14 +248,14 @@ def test_step(model, dataloader, normal_train, predict):
 #     plt.show()
 
 
-# def plot_bnn_pred_post(model, predict, normal_train, test, log_noise_var, noise_std, title, device):
+# def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var#, noise_std, title, device):
 #     # plot the BNN prior in function space
 #     K = 50  # number of Monte Carlos samples used in test time
 #     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
 #     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
 
 #     y_pred_mean, y_pred_std_noiseless = get_regression_results(model, x_test_norm, K, predict, normal_train)
-#     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_noise_var)), 0.0, normal_train.y_std)
+#     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_lik_var)), 0.0, normal_train.y_std)
 #     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
 #     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title)
 #     print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
