@@ -35,18 +35,15 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
         kls.append(float(kl))
         lr_sch.step()
         if (i+1) % 1000 == 0:
-            print(beta)
+            # print(beta)
             avgloss = sum(losses[-1000:])/1000
             avgnll = sum(nlls[-1000:])/1000
             avgkl = sum(kls[-1000:])/1000
             logs = logging(model, logs, i, avgloss, avgnll, avgkl, beta)
+            test_step(model, test_loader, train, predict, log_lik_var=beta)
             if filename is not None:
                 torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
                 write_logs_to_file(logs, filename)
-            if beta is None:
-                classif_test_step(model, nelbo, test_loader, device=device)
-            else:
-                test_step(model, test_loader, train, predict)
 
     logs = np.array(logs)
     return logs
