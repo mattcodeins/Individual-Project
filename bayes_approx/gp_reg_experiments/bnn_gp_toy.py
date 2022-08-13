@@ -18,8 +18,9 @@ from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import *
 
 
-def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50, activation='relu',
-                  prior_weight_std=1.0, prior_bias_std=1.0, init_std=1.0):
+def full_training(experiment_name=None, n_epochs=10000,
+                  num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+                  lik_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0):
     torch.manual_seed(1)
     experiment_name = uniquify(experiment_name)
 
@@ -40,9 +41,10 @@ def full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50, 
                     'init_std': init_std,
                     'device': device}
     model = make_linear_bnn(layer_sizes, activation, **layer_kwargs)
-    log_lik_var = torch.ones(size=(), device=device)*np.log(init_std**2)  # Gaussian likelihood -4.6 == std 0.1
+    log_lik_var = torch.ones(size=(), device=device)*np.log(lik_std**2)  # Gaussian likelihood -4.6 == std 0.1
     print("BNN architecture: \n", model)
 
+    # d.plot_bnn_prior(model)
     d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN init (before training, MFVI)', device)
 
     # training hyperparameters
@@ -159,5 +161,6 @@ if __name__ == "__main__":
     #     num_layers=4, h_dim=50, prior_weight_std=8.0, prior_bias_std=8.0, init_std=0.03,
     # ))
     # bnn_cross_val()
-    full_training(experiment_name=None, n_epochs=10000, num_layers=2, h_dim=50, activation='relu',
-                  prior_weight_std=1.0, prior_bias_std=1.0, init_std=1.0)
+    full_training(experiment_name=None, n_epochs=50000,
+                  num_layers=4, h_dim=50, activation='relu', init_std=0.05,
+                  lik_std=0.02, prior_weight_std=10.0, prior_bias_std=1.0)
