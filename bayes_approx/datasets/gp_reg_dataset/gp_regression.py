@@ -176,7 +176,6 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title, d
     y_pred_mean_samples = [
         get_regression_results(model, x_test_norm, predict, normal_train, K=1)[0]
         for _ in range(10)]
-    print(np.array(y_pred_mean_samples).shape)
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_lik_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title)

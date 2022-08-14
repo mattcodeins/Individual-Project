@@ -48,13 +48,21 @@ num_layers = 2
 # )
 
 x_dim, y_dim = 1, 1
-init_fn, apply_fn, kernel_fn = stax.serial(
+init_fn, f, kernel_fn = stax.serial(
     stax.Dense(h_dim, W_std=2.0, b_std=5.0), stax.Relu(),
     stax.Dense(h_dim, W_std=2.0, b_std=5.0), stax.Relu(),
     stax.Dense(y_dim)
 )
 
-apply_fn = jit(apply_fn)
+_, params = init_fn(key, X.shape)
+
+kernel_fn = nt.empirical_kernel_fn(
+    f, trace_axes=(-1,), vmap_axes=0,
+    implementation=nt.NtkImplementation.JACOBIAN_CONTRACTION)
+
+kernel = kernel_fn(Xt, X, 'nngp', params)
+
+apply_fn = jit(f)
 kernel_fn = jit(kernel_fn, static_argnames='get')
 
 prior_draws = []
@@ -106,24 +114,22 @@ legend(['train', '$f(x)$', 'random draw'], loc='upper left')
 
 finalize_plot((0.85, 0.6))
 
-kernel = kernel_fn(Xt, Xt, 'nngp')
 std_dev = np.sqrt(np.diag(kernel))
 
 plot_fn(X, Y, Xt, Yt)
 
-plt.fill_between(np.reshape(Xt, (-1,)), 2*std_dev, -2*std_dev, alpha=0.4)
+plt.fill_between(np.reshape(X, (-1,)), 2*std_dev, -2*std_dev, alpha=0.4)
 
 for p in prior_draws:
     plt.plot(Xt, p, linewidth=3, color=[1, 0.65, 0.65])
 
 finalize_plot((0.85, 0.6))
 
-kernel = kernel_fn(X, X, 'nngp')
-# predict_fn = nt.predict.gradient_descent_mse_ensemble(kernel_fn, X, Y, diag_reg=1e-4)
-predict_fn = nt.predict.gp_inference(kernel, Y, diag_reg=1e-4)
+predict_fn = nt.predict.gradient_descent_mse_ensemble(kernel_fn, X, Y, diag_reg=1e-4)
+# predict_fn = nt.predict.gp_inference(kernel, Y, diag_reg=1e-4)
 
-# nngp_mean, nngp_covariance = predict_fn(x_test=Xt, get='nngp', compute_cov=True)
 nngp_mean, nngp_covariance = predict_fn(x_test=Xt, get='nngp', compute_cov=True)
+# nngp_mean, nngp_covariance = predict_fn(x_test=Xt, get='nngp', compute_cov=True)
 
 nngp_mean = np.reshape(nngp_mean, (-1,))
 nngp_std = np.sqrt(np.diag(nngp_covariance))
