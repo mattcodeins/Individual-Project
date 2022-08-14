@@ -19,12 +19,13 @@ from modules.bnn.utils import *
 
 
 def full_training(experiment_name=None, n_epochs=10000,
-                  num_layers=2, h_dim=50, activation='relu', init_std=0.1,
-                  likelihood_std=0.1, prior_weight_std=1.0, prior_bias_std=1.0):
+                  num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0):
     torch.manual_seed(2)
     if experiment_name == 'hyper':
-        experiment_name = 
-    experiment_name = uniquify(experiment_name)
+        exp_name = (f'nl{num_layers}_hdim{h_dim}_likstd{likelihood_std}_pws{prior_weight_std}_pbs{prior_bias_std}'
+                    + '_BNN_GPtoyreg')
+    experiment_name = uniquify(exp_name)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -67,7 +68,7 @@ def full_training(experiment_name=None, n_epochs=10000,
 
     # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN approx. posterior (MFVI)', device)
 
-    return d.test_step(model, test_loader, train, predict)
+    return d.test_step(model, test_loader, train, predict), logs[-1][1]
 
 
 def hyper_training_iter(train_loader, test_loader, train, test,
@@ -190,9 +191,27 @@ def load_test_model(experiment_name=None, n_epochs=10000,
 
 
 if __name__ == "__main__":
-    full_training(experiment_name='hyper', n_epochs=50000,
-                  num_layers=5, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.04, prior_weight_std=2.0, prior_bias_std=10.0)
+    v1, e1 = full_training(experiment_name='hyper', n_epochs=60000,
+                           num_layers=1, h_dim=50, activation='relu', init_std=0.05,
+                           likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    v2, e2 = full_training(experiment_name='hyper', n_epochs=60000,
+                           num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+                           likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    v3, e3 = full_training(experiment_name='hyper', n_epochs=60000,
+                           num_layers=3, h_dim=50, activation='relu', init_std=0.05,
+                           likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    v4, e4 = full_training(experiment_name='hyper', n_epochs=60000,
+                           num_layers=4, h_dim=50, activation='relu', init_std=0.05,
+                           likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    v5, e5 = full_training(experiment_name='hyper', n_epochs=60000,
+                           num_layers=5, h_dim=50, activation='relu', init_std=0.05,
+                           likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    print(f'{v1}, {e1}')
+    print(f'{v2}, {e2}')
+    print(f'{v3}, {e3}')
+    print(f'{v4}, {e4}')
+    print(f'{v5}, {e5}')
+
     # bnn_cross_val()
     # best_nll_model = [0.02, 0.005, 2, 2.0, 5.0]
     # full_training(experiment_name='orgcv', n_epochs=100000,

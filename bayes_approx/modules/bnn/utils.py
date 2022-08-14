@@ -193,7 +193,7 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
             logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(prior_reg), to_numpy(ml_loss),
                         to_numpy(model.prior_mean), fl_prior_avg_std])
             print("Epoch {}, nelbo={}, nll={}, prior_reg={}, prior_mean={}, avg prior_std (1st layer)={}".format(
-                logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
+                  logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
             ))
     elif isinstance(first_layer, (CMBayesLinear)):
         # prior_mean_hyperstd = np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))
