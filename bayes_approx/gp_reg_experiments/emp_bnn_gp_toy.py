@@ -16,44 +16,69 @@ from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import *
 
 
-torch.manual_seed(1)
-experiment_name = 'emp_bnn_gp_reg_23_07'
+def full_training(exp_name=None, n_epochs=10000,
+                  num_layers=2, h_dim=50, activation='relu',
+                  init_std=0.1, init_lik_std=0.05, init_prior_std=1.0):
+    torch.manual_seed(1)
+    if exp_name == 'hyper':
+        exp_name = (f'nl{num_layers}_hdim{h_dim}_ils{init_lik_std}_ips{init_prior_std}'
+                    + '_BNN_GPtoyreg')
+    exp_name = uniquify(exp_name)
 
-# import dataset
-train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
+    # import dataset
+    train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
 
-# create bnn
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-x_dim, y_dim = 1, 1
-h_dim = 50
-layer_sizes = [x_dim, h_dim, y_dim]
-activation = nn.ReLU()
-init_prior_std = 1.0
-layer_kwargs = {'sqrt_width_scaling': True,
-                'init_std': 0.05,
-                'device': device}
-model = make_linear_emp_bnn(layer_sizes, init_prior_std, activation, **layer_kwargs)
-log_noise_var = nn.Parameter(torch.ones(size=(), device=device)*-3.0)  # Gaussian likelihood
-print("BNN architecture: \n", model)
+    # create bnn
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    x_dim, y_dim = 1, 1
+    layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
+    if activation == 'relu':
+        activation = nn.ReLU()
+    elif activation == 'tanh':
+        activation = nn.Tanh()
+    layer_kwargs = {'sqrt_width_scaling': True,
+                    'init_std': init_std,
+                    'device': device}
+    model = make_linear_emp_bnn(layer_sizes, init_prior_std, activation, **layer_kwargs)
+    log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*np.log(init_lik_std**2))  # Gaussian likelihood
+    print("BNN architecture: \n", model)
 
-d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
-                     'BNN init (before training, MFVI)', device)
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'empBNN initialisation', device)
 
-# training hyperparameters
-learning_rate = 1e-3
-params = list(model.parameters()) + [log_noise_var]
-opt = torch.optim.Adam(params, lr=learning_rate)
-lr_sch = torch.optim.lr_scheduler.StepLR(opt, 50000, gamma=0.1)
-N_epochs = 1500
+    # training hyperparameters
+    learning_rate = 1e-3
+    params = list(model.parameters()) + [log_lik_var]
+    opt = torch.optim.Adam(params, lr=learning_rate)
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, n_epochs/4, gamma=0.1)
 
-# define loss function (-ELBO)
-gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
-kl_loss = GaussianKLLoss()
-nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
+    # define loss function (-ELBO)
+    gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
+    kl_loss = GaussianKLLoss()
+    nelbo = nELBO(nll_loss=gnll_loss, kl_loss=kl_loss)
 
-logs = training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader,
-                     test_loader, log_noise_var, experiment_name, device)
-plot_training_loss(logs)
+    logs = training_loop(
+        model, n_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_lik_var,
+        d.test_step, train, exp_name, device
+    )
 
-d.plot_bnn_pred_post(model, predict, train, test, log_noise_var, noise_std,
-                     'BNN approx. posterior (MFVI)', device)
+    plot_training_loss(logs)
+
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'empBNN approximate posterior', device)
+
+    return d.test_step(model, test_loader, train, predict), logs[-1][1]
+
+
+if __name__ == "__main__":
+    t1, e1 = full_training(exp_name='hyper', n_epochs=1000,
+                           num_layers=1, h_dim=50, activation='relu',
+                           init_std=0.1, init_lik_std=0.05, init_prior_std=1.0)
+    # t1, e1 = full_training(experiment_name=None, n_epochs=60000,
+    #                        num_layers=2, h_dim=50, activation='relu', init_std=0.1,
+    #                        init_lik_std=0.05, init_prior_std=1.0)
+    # t1, e1 = full_training(experiment_name=None, n_epochs=10000,
+    #                        num_layers=2, h_dim=50, activation='relu', init_std=0.1,
+    #                        init_lik_std=0.05, init_prior_std=1.0)
+  
+    # load_test_model(experiment_name='nl4_hdim50_likstd0.02_pws1.0_pbs1.0_BNN_GPtoyreg', n_epochs=60000,
+    #                 num_layers=4, h_dim=50, activation='relu', init_std=0.05,
+    #                 likelihood_std=0.02, prior_weight_std=1.0, prior_bias_std=1.0)

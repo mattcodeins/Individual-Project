@@ -18,14 +18,14 @@ from modules.bnn.modules.loss import GaussianKLLoss, nELBO
 from modules.bnn.utils import *
 
 
-def full_training(experiment_name=None, n_epochs=10000,
+def full_training(exp_name=None, n_epochs=10000,
                   num_layers=2, h_dim=50, activation='relu', init_std=0.05,
                   likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0):
-    torch.manual_seed(2)
-    if experiment_name == 'hyper':
+    torch.manual_seed(1)
+    if exp_name == 'hyper':
         exp_name = (f'nl{num_layers}_hdim{h_dim}_likstd{likelihood_std}_pws{prior_weight_std}_pbs{prior_bias_std}'
                     + '_BNN_GPtoyreg')
-    experiment_name = uniquify(exp_name)
+    exp_name = uniquify(exp_name)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -53,7 +53,7 @@ def full_training(experiment_name=None, n_epochs=10000,
     learning_rate = 1e-3
     params = list(model.parameters())  # + [log_noise_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
-    lr_sch = torch.optim.lr_scheduler.StepLR(opt, 15000, gamma=0.1)
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, n_epochs/4, gamma=0.1)
 
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
     kl_loss = GaussianKLLoss()
@@ -62,7 +62,7 @@ def full_training(experiment_name=None, n_epochs=10000,
 
     logs = training_loop(
         model, n_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_lik_var,
-        d.test_step, train, experiment_name, device
+        d.test_step, train, exp_name, device
     )
     # plot_training_loss(logs)
 
@@ -191,10 +191,10 @@ def load_test_model(experiment_name=None, n_epochs=10000,
 
 
 if __name__ == "__main__":
-    v1, e1 = full_training(experiment_name='hyper', n_epochs=60000,
+    v1, e1 = full_training(exp_name='hyper', n_epochs=60000,
                            num_layers=4, h_dim=50, activation='relu', init_std=0.05,
                            likelihood_std=0.02, prior_weight_std=0.5, prior_bias_std=0.5)
-    load_test_model(experiment_name='nl4_hdim50_likstd0.02_pws1.0_pbs1.0_BNN_GPtoyreg', n_epochs=60000,
+    load_test_model(exp_name='nl4_hdim50_likstd0.02_pws1.0_pbs1.0_BNN_GPtoyreg', n_epochs=60000,
                     num_layers=4, h_dim=50, activation='relu', init_std=0.05,
                     likelihood_std=0.02, prior_weight_std=1.0, prior_bias_std=1.0)
 

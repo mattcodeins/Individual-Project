@@ -56,11 +56,11 @@ class EmpBayesLinear(nn.Module):
 
     def reset_parameters(self, init_std=0.05):
         # nn.init.kaiming_uniform_(self.weight_mean, a=math.sqrt(5))
-        bound = 1. / math.sqrt(self.in_features)
-        nn.init.uniform_(self.weight_mean, -bound, bound)
+        mean_var = 1. / math.sqrt(self.in_features)
+        nn.init.normal_(self.weight_mean, 0.0, mean_var)
         nn.init.constant_(self._weight_std_param, np.log(np.exp(init_std) - 1))
         if self.bias:
-            nn.init.uniform_(self.bias_mean, -bound, bound)
+            nn.init.normal_(self.bias_mean, 0.0, mean_var)
             nn.init.constant_(self._bias_std_param, np.log(np.exp(init_std) - 1))
 
     # define the q distribution standard deviations with property decorator
