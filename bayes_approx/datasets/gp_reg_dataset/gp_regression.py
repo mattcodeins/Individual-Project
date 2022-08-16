@@ -1,3 +1,4 @@
+from tkinter import N
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -128,6 +129,14 @@ def get_regression_results(model, x, predict, dataset, K=50, log_lik_var=None):
     return y_pred_mean, y_pred_std
 
 
+def get_unnormal_regression_results(model, x, predict, K=50, log_lik_var=None):
+    y_pred_mean, y_pred_std = predict(model, x, K=K)  # shape (K, N_test, y_dim)
+    if log_lik_var is not None:
+        # total uncertainty: here the preditive std needs to count for output noise variance
+        y_pred_std = (y_pred_std**2 + torch.exp(log_lik_var)).sqrt()
+    return to_numpy(y_pred_mean), to_numpy(y_pred_std)
+
+
 def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title=''):
     x_train = unnormalise_data(normal_train.x, normal_train.x_mean, normal_train.x_std)
     y_train = unnormalise_data(normal_train.y, normal_train.y_mean, normal_train.y_std)
@@ -166,6 +175,8 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
 
 
 def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title, device=device):
+    if title is None:
+        title = 'BNN approximate posterior (MFVI)'
     # plot the BNN prior in function space
     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
@@ -193,24 +204,26 @@ def plot_training_loss(logs):
     plt.show()
 
 
-def test_step(model, dataloader, normal_train, predict, log_lik_var=None):
+def mse_test_step(model, dataloader, normal_train, predict, log_lik_var=None):
     """
-    Calculate accuracy on test set.
+    Calculate mean squared error on test set (normalising to train).
     """
     model.eval()
     tloss = 0
     with torch.no_grad():
         for x_test, y_test in dataloader:
             x_test_norm = normalise_data(x_test, normal_train.x_mean, normal_train.x_std).float()
-            y_pred_mean, _ = get_regression_results(model, x_test_norm, predict, normal_train)
+            y_pred_mean, _ = get_regression_results(
+                model, x_test_norm, predict, normal_train, 50, log_lik_var
+            )
             tloss += F.mse_loss(torch.from_numpy(y_pred_mean), y_test)
     print('\nTest set: MSE: {}'.format(tloss))
-    return tloss
+    return tloss/len(dataloader)
 
 
-def gauss_test_step(model, dataloader, normal_train, predict, log_lik_var):
+def gnll_test_step(model, dataloader, normal_train, predict, log_lik_var=None):
     """
-    Calculate accuracy on test set.
+    Calculate mean gaussian negative log likelihood on test set (normalising to train).
     """
     model.eval()
     tloss = 0
@@ -218,12 +231,46 @@ def gauss_test_step(model, dataloader, normal_train, predict, log_lik_var):
         for x_test, y_test in dataloader:
             x_test_norm = normalise_data(x_test, normal_train.x_mean, normal_train.x_std).float()
             y_pred_mean, y_pred_std = get_regression_results(
-                model, x_test_norm, predict, normal_train, K=50, log_lik_var=log_lik_var
+                model, x_test_norm, predict, normal_train, 50, log_lik_var
             )
             tloss += F.gaussian_nll_loss(
-                torch.from_numpy(y_pred_mean), y_test, torch.from_numpy(y_pred_std), full=True, reduction='sum'
+                torch.from_numpy(y_pred_mean), y_test, torch.from_numpy(y_pred_std), full=True
+            )/len(dataloader)
+    print('\nTest set: GNLL: {}'.format(tloss))
+    return tloss/len(dataloader)
+
+
+def mse_train(model, dataloader, predict, log_lik_var=None):
+    """
+    Calculate mean squared error on train set (without normalising to train).
+    """
+    model.eval()
+    tloss = 0
+    with torch.no_grad():
+        for x, y in dataloader:
+            y_pred_mean, _ = get_unnormal_regression_results(
+                model, x, predict, 50, log_lik_var
             )
-    print('\nTest set: MSE: {}'.format(tloss))
+            tloss += F.mse_loss(torch.from_numpy(y_pred_mean), y)
+    print('\nTrain set: MSE: {}'.format(tloss))
+    return tloss/len(dataloader)
+
+
+def gnll_train(model, dataloader, predict, log_lik_var):
+    """
+    Calculate mean gaussian negative log likelihood on train set (without normalising to train).
+    """
+    model.eval()
+    tloss = 0
+    with torch.no_grad():
+        for x, y in dataloader:
+            y_pred_mean, y_pred_std = get_unnormal_regression_results(
+                model, x, predict, 50, log_lik_var
+            )
+            tloss += F.gaussian_nll_loss(
+                torch.from_numpy(y_pred_mean), y, torch.from_numpy(y_pred_std), full=True
+            )/len(dataloader)
+    print('\nTrain set: GNLL: {}'.format(tloss))
     return tloss
 
 

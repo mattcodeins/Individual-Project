@@ -1,3 +1,4 @@
+from mimetypes import init
 import numpy as np
 import math
 import torch
@@ -27,10 +28,12 @@ class BayesLinear(nn.Module):
         else:
             self.register_parameter('bias_mean', None)
             self.register_parameter('_bias_std_param', None)
-        self.reset_parameters(init_std)
 
         # prior parameters (Gaussian)
         prior_mean = 0.0
+        self.sqrt_width_scaling = sqrt_width_scaling
+        self.prior_w_std = prior_weight_std
+        self.prior_b_std = prior_bias_std
         if sqrt_width_scaling:  # prior variance scales as 1/in_features
             prior_weight_std /= self.in_features ** 0.5
         # prior parameters are registered as constants
@@ -42,6 +45,8 @@ class BayesLinear(nn.Module):
         else:
             self.register_buffer('prior_bias_mean', None)
             self.register_buffer('prior_bias_std', None)
+
+        self.reset_parameters(init_std)
 
     def extra_repr(self):
         repr = "in_features={}, out_features={}, bias={}".format(
@@ -56,13 +61,24 @@ class BayesLinear(nn.Module):
         return repr
 
     def reset_parameters(self, init_std=0.05):
-        # nn.init.kaiming_uniform_(self.weight_mean, a=math.sqrt(5))
-        bound = 1. / math.sqrt(self.in_features)
-        nn.init.normal_(self.weight_mean, 0.0, bound)
-        nn.init.constant_(self._weight_std_param, np.log(np.exp(init_std) - 1))
+        if init_std == 'prior':
+            w_mean_std = 0.0
+            b_mean_std = 0.0
+            w_init_std = self.prior_w_std
+            b_init_std = self.prior_b_std
+            if self.sqrt_width_scaling:
+                w_mean_std /= self.in_features
+                w_init_std /= self.in_features
+        else:
+            w_mean_std = 1.0 / self.in_features
+            b_mean_std = 1.0 / self.in_features
+            w_init_std = init_std
+            b_init_std = init_std
+        nn.init.normal_(self.weight_mean, 0.0, w_mean_std)
+        nn.init.constant_(self._weight_std_param, np.log(np.exp(w_init_std) - 1))
         if self.bias:
-            nn.init.normal_(self.bias_mean, 0.0, bound)
-            nn.init.constant_(self._bias_std_param, np.log(np.exp(init_std) - 1))
+            nn.init.normal_(self.bias_mean, 0.0, b_mean_std)
+            nn.init.constant_(self._bias_std_param, np.log(np.exp(b_init_std) - 1))
 
     # define the q distribution standard deviations with property decorator
     @property

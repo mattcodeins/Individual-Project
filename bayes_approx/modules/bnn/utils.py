@@ -217,7 +217,7 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
 
 def plot_training_loss(logs):
     fig, axs = plt.subplots(2, 2)
-    axs[0,0].plot(np.arange(logs.shape[0]), -logs[:,1], 'r-')
+    axs[0,0].plot(np.arange(logs.shape[0]), logs[:,1], 'r-')
     axs[0,1].plot(np.arange(logs.shape[0]), logs[:,2], 'r-')
     axs[1,0].plot(np.arange(logs.shape[0]), logs[:,3], 'r-')
     # axs[1,1].plot(np.arange(logs.shape[0]), logs[:,4], 'r-')
@@ -230,6 +230,19 @@ def plot_training_loss(logs):
     axs[1,0].set_title('kl')
     # axs[1,1].set_title('prior std')
 
+    plt.show()
+
+
+def plot_training_loss_together(logs, title='training curve'):
+    x = np.arange(logs.shape[0])*1000
+    plt.plot(x, logs[:,1], 'r-', label='nelbo')
+    plt.fill_between(x, logs[:,2], label='nll')
+    plt.fill_between(x, logs[:,1], logs[:,2], label='kl')
+
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.title(title)
+    plt.legend()
     plt.show()
 
 
@@ -260,3 +273,9 @@ def load_model(model, model_name):
     model.load_state_dict(torch.load(path, map_location=torch.device(device)))
     model.eval()
     return model
+
+
+def load_logs(model_name):
+    path = f"bayes_approx/results/{model_name}.csv"
+    logs = np.genfromtxt(path, delimiter=',', skip_header=1)
+    return logs
