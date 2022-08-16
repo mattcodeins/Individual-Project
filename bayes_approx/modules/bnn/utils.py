@@ -215,7 +215,7 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
     return logs
 
 
-def plot_training_loss(logs):
+def plot_training_loss(logs, exp_name=None):
     fig, axs = plt.subplots(2, 2)
     axs[0,0].plot(np.arange(logs.shape[0]), logs[:,1], 'r-')
     axs[0,1].plot(np.arange(logs.shape[0]), logs[:,2], 'r-')
@@ -231,9 +231,11 @@ def plot_training_loss(logs):
     # axs[1,1].set_title('prior std')
 
     plt.show()
+    if exp_name is not None:
+        plt.savefig(f'./figures/{exp_name}train.png',bbox_inches='tight')
 
 
-def plot_training_loss_together(logs, title='training curve'):
+def plot_training_loss_together(logs, title='training curve', exp_name=None):
     x = np.arange(logs.shape[0])*1000
     plt.plot(x, logs[:,1], 'r-', label='nelbo')
     plt.fill_between(x, logs[:,2], label='nll')
@@ -243,6 +245,8 @@ def plot_training_loss_together(logs, title='training curve'):
     plt.ylabel('loss')
     plt.title(title)
     plt.legend()
+    if exp_name is not None:
+        plt.savefig(f'./figures/{exp_name}train.png', bbox_inches='tight')
     plt.show()
 
 

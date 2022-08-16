@@ -137,12 +137,13 @@ def get_unnormal_regression_results(model, x, predict, K=50, log_lik_var=None):
     return to_numpy(y_pred_mean), to_numpy(y_pred_std)
 
 
-def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title=''):
+def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless,
+                    y_pred_std, y_pred_mean_samples, title='', exp_name=None):
     x_train = unnormalise_data(normal_train.x, normal_train.x_mean, normal_train.x_std)
     y_train = unnormalise_data(normal_train.y, normal_train.y_mean, normal_train.y_std)
 
     # first for the total uncertainty (model/epistemic + data/aleatoric)
-    plt.figure(figsize=(12, 6))
+    fig = plt.figure(figsize=(12, 6))
     plt.plot(x_train, y_train, "kx", mew=2, label='noisy sample points')
     plt.plot(test.x, y_pred_mean, "C0", lw=2, label='prediction mean')
     plt.fill_between(
@@ -171,10 +172,12 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pre
     plt.plot(test.x, test.y, color='orange', label='sample function')
     plt.legend()
     plt.title(title)
+    if exp_name is not None:
+        plt.savefig(f'./figures/{exp_name}out.png', bbox_inches='tight')
     plt.show()
 
 
-def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title, device=device):
+def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title=None, exp_name=None, device=device):
     if title is None:
         title = 'BNN approximate posterior (MFVI)'
     # plot the BNN prior in function space
@@ -189,19 +192,21 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title, d
         for _ in range(10)]
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_lik_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
-    plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title)
-    print(model_noise_std, y_pred_std_noiseless.mean())
+    plot_regression(
+        normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title, exp_name
+    )
+    print(f'model_std: {model_noise_std}, pred_std: {y_pred_std_noiseless.mean()}')
 
 
-def plot_training_loss(logs):
-    _, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
-    ax1.plot(np.arange(logs.shape[0]), logs[:, 0], 'r-')
-    ax2.plot(np.arange(logs.shape[0]), logs[:, 1], 'r-')
-    ax1.set_xlabel('epoch')
-    ax2.set_xlabel('epoch')
-    ax1.set_title('nll')
-    ax2.set_title('kl')
-    plt.show()
+# def plot_training_loss(logs):
+#     _, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+#     ax1.plot(np.arange(logs.shape[0]), logs[:, 0], 'r-')
+#     ax2.plot(np.arange(logs.shape[0]), logs[:, 1], 'r-')
+#     ax1.set_xlabel('epoch')
+#     ax2.set_xlabel('epoch')
+#     ax1.set_title('nll')
+#     ax2.set_title('kl')
+#     plt.show()
 
 
 def mse_test_step(model, dataloader, normal_train, predict, log_lik_var=None):
