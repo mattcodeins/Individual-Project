@@ -243,23 +243,23 @@ if __name__ == "__main__":
     #                 likelihood_std=0.005, prior_weight_std=2.0, prior_bias_std=5.0)
 
     # full_training(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,
-    #               num_layers=1, h_dim=50, activation='relu', init_std='prior',
+    #               num_layers=1, h_dim=50, activation='relu', init_std=0.05,
     #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_initpriorNL2', n_epochs=60000,
-    #               num_layers=2, h_dim=50, activation='relu', init_std='prior',
+    # full_training(exp_name='bnn_vague_0.05priorNL2', n_epochs=60000,
+    #               num_layers=2, h_dim=50, activation='relu', init_std=0.05,
     #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_initpriorNL3', n_epochs=60000,
-    #               num_layers=3, h_dim=50, activation='relu', init_std='prior',
+    # full_training(exp_name='bnn_vague_0.05priorNL3', n_epochs=60000,
+    #               num_layers=3, h_dim=50, activation='relu', init_std=0.05,
     #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_initpriorNL4', n_epochs=60000,
-    #               num_layers=4, h_dim=50, activation='relu', init_std='prior',
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_initpriorNL5', n_epochs=60000,
-    #               num_layers=5, h_dim=50, activation='relu', init_std='prior',
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    load_test_model(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,
-                    num_layers=1, h_dim=50, activation='relu', init_std='prior',
-                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    load_test_model(exp_name='bnn_vague_initpriorNL2', n_epochs=60000,
-                    num_layers=2, h_dim=50, activation='relu', init_std='prior',
-                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    full_training(exp_name='bnn_vague_0.05priorNL4', n_epochs=60000,
+                  num_layers=4, h_dim=50, activation='relu', init_std=0.05,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    full_training(exp_name='bnn_vague_0.05priorNL5', n_epochs=60000,
+                  num_layers=5, h_dim=50, activation='relu', init_std=0.05,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    # load_test_model(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,
+    #                 num_layers=1, h_dim=50, activation='relu', init_std=0.05,
+    #                 likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    # load_test_model(exp_name='bnn_vague_initpriorNL2', n_epochs=60000,
+    #                 num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+    #                 likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)

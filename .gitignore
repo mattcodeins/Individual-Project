@@ -4,3 +4,4 @@ __pycache__/
 datasets.MNIST
 results
 saved_models
+figures
