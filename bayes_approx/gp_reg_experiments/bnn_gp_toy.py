@@ -52,7 +52,7 @@ def full_training(exp_name=None, n_epochs=10000,
         log_lik_var = torch.ones(size=(), device=device)*np.log(normal_lik_std**2)
     print("BNN architecture: \n", model)
 
-    # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN initialisation (MVFI)', device)
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN initialisation (MVFI)', device)
 
     # training hyperparameters
     learning_rate = 1e-3
@@ -95,7 +95,8 @@ def hyper_training_iter(train_loader, test_loader, train, test,
                     'init_std': init_std,
                     'device': device}
     model = make_linear_bnn(layer_sizes, activation, **layer_kwargs)
-    log_lik_var = torch.ones(size=(), device=device)*np.log(likelihood_std**2)  # Gaussian likelihood -4.6 == std 0.1
+    normal_lik_std = torch.cuda.FloatTensor(d.normalise_data(likelihood_std, 0, train.y_std))
+    log_lik_var = torch.ones(size=(), device=device)*torch.log(normal_lik_std**2)  # Gaussian likelihood -4.6 == std 0.1
     # print("BNN architecture: \n", model)
 
     # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN init (before training, MFVI)', device)
@@ -123,11 +124,10 @@ def hyper_training_iter(train_loader, test_loader, train, test,
 
 
 def bnn_cross_val():
-    init_std_list = [0.05]
-    lik_var_list = [0.05, 0.02]
-    num_layers_list = [4, 5]
-    prior_w_std_list = [2.0, 1.0, 10.0, 5.0]
-    prior_b_std_list = [1.0, 5.0, 10.0, 20.0]
+    init_std_list = [0.05, 'prior']
+    lik_var_list = [0.02, 0.01]
+    num_layers_list = [5, 4]
+    prior_std_list = [(0.5, 0.5), (0.5, 2.0), (5.0, 10.0)]
 
     n_splits = 5
     kf = KFold(n_splits=n_splits, shuffle=True)
@@ -141,32 +141,32 @@ def bnn_cross_val():
     for init_std in init_std_list:
         for lik_var in lik_var_list:
             for num_layers in num_layers_list:
-                for p_w_std in prior_w_std_list:
-                    for p_b_std in prior_b_std_list:
-                        if completed_cvs > 0:
-                            completed_cvs -= 1
-                            continue
-                        t_val_loss = 0
-                        t_elbo = 0
-                        print(f'Current Model: lv={lik_var}, nl={num_layers}, pws={p_w_std}, pbs={p_b_std}')
-                        for i in range(n_splits):
-                            val_loss, elbo = hyper_training_iter(
-                                train_loader_list[i], val_loader_list[i],
-                                normalised_train_list[i], val_list[i],
-                                num_layers=num_layers, h_dim=50, activation='relu',
-                                init_std=init_std, likelihood_std=lik_var,
-                                prior_weight_std=p_w_std, prior_bias_std=p_b_std)
-                            t_val_loss += val_loss/n_splits
-                            t_elbo += elbo/n_splits
-                        print(f'CV Loss={t_val_loss}')
-                        if t_val_loss < best_loss:
-                            best_model = {'init_std': init_std, 'likelihood var': lik_var,
-                                          'num_layers': num_layers,
-                                          'prior w std': p_w_std, 'prior b std': p_b_std}
-                            best_loss = t_val_loss
-                        print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')
-                        with open('bayes_approx/results/gp_bnn/new_auto_cv.txt', 'a') as f:
-                            f.write(f'{init_std} {lik_var} {num_layers} {p_w_std} {p_b_std} {t_val_loss} {t_elbo} \n')
+                for p_w_std, p_b_std in prior_std_list:
+                    if completed_cvs > 0:
+                        completed_cvs -= 1
+                        continue
+                    t_val_loss = 0
+                    t_elbo = 0
+                    print(f'Current Model: lv={lik_var}, nl={num_layers}, pws={p_w_std}, pbs={p_b_std}')
+                    for i in range(n_splits):
+                        val_loss, elbo = hyper_training_iter(
+                            train_loader_list[i], val_loader_list[i],
+                            normalised_train_list[i], val_list[i],
+                            num_layers=num_layers, h_dim=50, activation='relu',
+                            init_std=init_std, likelihood_std=lik_var,
+                            prior_weight_std=p_w_std, prior_bias_std=p_b_std
+                        )
+                        t_val_loss += val_loss/n_splits
+                        t_elbo += elbo/n_splits
+                    print(f'CV Loss={t_val_loss}')
+                    if t_val_loss < best_loss:
+                        best_model = {'init_std': init_std, 'likelihood var': lik_var,
+                                      'num_layers': num_layers,
+                                      'prior w std': p_w_std, 'prior b std': p_b_std}
+                        best_loss = t_val_loss
+                    print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')
+                    with open('bayes_approx/results/gp_bnn/new_auto_cv.txt', 'a') as f:
+                        f.write(f'{init_std} {lik_var} {num_layers} {p_w_std} {p_b_std} {t_val_loss} {t_elbo} \n')
 
 
 def load_test_model(exp_name=None, n_epochs=None,
@@ -245,23 +245,49 @@ if __name__ == "__main__":
     # load_test_model('cv_mse', n_epochs=100000,
     #                 num_layers=2, h_dim=50, activation='relu', init_std=0.02,
     #                 likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
-    # load_test_model('cv_nll', n_epochs=100000,
+    # ('cv_nll', n_epochs=100000,
     #                 num_layers=2, h_dim=50, activation='relu', init_std=0.02,
     #                 likelihood_std=0.005, prior_weight_std=2.0, prior_bias_std=5.0)
 
-    load_test_model(exp_name='bnn_cv_NL1', n_epochs=60000,
+    load_test_model(exp_name='bnn_vague_0.05priorNL1', n_epochs=60000,
                   num_layers=1, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
-    load_test_model(exp_name='bnn_cv_NL2', n_epochs=60000,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_0.05priorNL2', n_epochs=60000,
                   num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
-    load_test_model(exp_name='bnn_cv_NL3', n_epochs=60000,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_0.05priorNL3', n_epochs=60000,
                   num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
-    load_test_model(exp_name='bnn_cv_NL4', n_epochs=60000,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_0.05priorNL4', n_epochs=60000,
+
+    # full_training(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,
+    #               num_layers=1, h_dim=50, activation='relu', init_std=0.05,
+    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    # full_training(exp_name='bnn_vague_0.05priorNL2', n_epochs=60000,
+    #               num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    # full_training(exp_name='bnn_vague_0.05priorNL3', n_epochs=60000,
+    #               num_layers=3, h_dim=50, activation='relu', init_std=0.05,
+    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    # full_training(exp_name='bnn_vague_initpriorNL4', n_epochs=60000,
+    #               num_layers=4, h_dim=50, activation='relu', init_std='prior',
+    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    # full_training(exp_name='bnn_vague_initpriorNL5', n_epochs=60000,
+    #               num_layers=5, h_dim=50, activation='relu', init_std='prior',
+    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_initpriorNL3', n_epochs=60000,
+                    num_layers=3, h_dim=50, activation='relu', init_std='prior',
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_initpriorNL4', n_epochs=60000,
+                    num_layers=4, h_dim=50, activation='relu', init_std='prior',
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_initpriorNL5', n_epochs=60000,
+                    num_layers=5, h_dim=50, activation='relu', init_std='prior',
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    full_training(exp_name='bnn_vague_0.05priorNL4', n_epochs=60000,
                   num_layers=4, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
-    load_test_model(exp_name='bnn_cv_NL5', n_epochs=60000,
+                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    load_test_model(exp_name='bnn_vague_0.05priorNL5', n_epochs=60000,
                   num_layers=5, h_dim=50, activation='relu', init_std=0.05,
                   likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
     # load_test_model(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,

@@ -6,12 +6,11 @@ import torch.nn.functional as F
 
 
 class EmpBayesLinear(nn.Module):
-    """
-    Learnable single prior std shared by all weights and biases.
-    Prior mean is zero for all weights and biases.
+    """Learnable single prior std shared by all weights and biases.
+       Prior mean is zero for all weights and biases.
     """
     def __init__(self, in_features, out_features, _prior_std_param, bias=True,
-                 init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
+                 init_std=0.05, sqrt_width_scaling=True, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(EmpBayesLinear, self).__init__()
         self.in_features = in_features
@@ -28,7 +27,6 @@ class EmpBayesLinear(nn.Module):
         else:
             self.register_parameter('bias_mean', None)
             self.register_parameter('_bias_std_param', None)
-        self.reset_parameters(init_std)
 
         # prior parameters (Gaussian)
         prior_mean = 0.0
@@ -41,6 +39,8 @@ class EmpBayesLinear(nn.Module):
         else:
             self.register_buffer('prior_bias_mean', None)
             self.register_buffer('prior_bias_std', None)
+
+        self.reset_parameters(init_std)
 
     def extra_repr(self):
         repr = "in_features={}, out_features={}, bias={}".format(
@@ -55,18 +55,24 @@ class EmpBayesLinear(nn.Module):
         return repr
 
     def reset_parameters(self, init_std=0.05):
-        # nn.init.kaiming_uniform_(self.weight_mean, a=math.sqrt(5))
-        mean_var = 1. / math.sqrt(self.in_features)
-        nn.init.normal_(self.weight_mean, 0.0, mean_var)
-        nn.init.constant_(self._weight_std_param, np.log(np.exp(init_std) - 1))
-        if self.bias:
-            nn.init.normal_(self.bias_mean, 0.0, mean_var)
+        if init_std == 'prior':
+            w_mean_std = 0.0
+            b_mean_std = 0.0
+            nn.init.constant_(self._weight_std_param, self._prior_weight_std_param.detach())
+            nn.init.constant_(self._bias_std_param, self._prior_bias_std_param.detach())
+        else:
+            w_mean_std = 1.0 / self.in_features
+            b_mean_std = 1.0 / self.in_features
+            nn.init.constant_(self._weight_std_param, np.log(np.exp(init_std) - 1))
             nn.init.constant_(self._bias_std_param, np.log(np.exp(init_std) - 1))
+        nn.init.normal_(self.weight_mean, 0.0, w_mean_std)
+        if self.bias:
+            nn.init.normal_(self.bias_mean, 0.0, b_mean_std)
 
     # define the q distribution standard deviations with property decorator
     @property
     def weight_std(self):
-        return torch.log(1 + torch.exp(self._weight_std_param))
+        return torch.log(1 + torch.exp(self._weight_std_param)) / self.in_features**0.5
 
     @property
     def bias_std(self):

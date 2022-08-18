@@ -17,6 +17,7 @@ from modules.bnn.modules.loss import CollapsedMeanLoss, nELBO
 from modules.bnn.utils import *
 
 
+def full_training():
 torch.manual_seed(1)
 experiment_name = 'cm_bnn_gp_reg_25_07'
 
