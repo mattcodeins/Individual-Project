@@ -236,8 +236,6 @@ def plot_training_loss(logs, exp_name=None):
 
 def plot_training_loss_together(logs, title='training curve', exp_name=None):
     x = np.arange(logs.shape[0])*1000
-    print(logs[:,1])
-    print(logs[:,2])
     plt.plot(x, logs[:,1], 'r-', label='nelbo')
     plt.fill_between(x, logs[:,2], label='nll')
     plt.fill_between(x, logs[:,1], logs[:,2], label='kl')
