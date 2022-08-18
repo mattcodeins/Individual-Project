@@ -197,7 +197,6 @@ def load_test_model(exp_name=None, n_epochs=None,
     print("BNN architecture: \n", model)
     model = load_model(model, exp_name)
     logs = load_logs(exp_name)
-    print(logs[-1])
     plot_training_loss_together(logs, exp_name=exp_name)
     d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, None, exp_name, device)
     d.mse_test_step(model, test_loader, train, predict, log_lik_var)
@@ -247,49 +246,23 @@ if __name__ == "__main__":
     #                 likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
     # ('cv_nll', n_epochs=100000,
     #                 num_layers=2, h_dim=50, activation='relu', init_std=0.02,
-    #                 likelihood_std=0.005, prior_weight_std=2.0, prior_bias_std=5.0)
+    #                 likelihood_std=0.005, prior_weight_std=2.0, prior_bias_std=5.0
 
     load_test_model(exp_name='bnn_vague_0.05priorNL1', n_epochs=60000,
-                  num_layers=1, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+                    num_layers=1, h_dim=50, activation='relu', init_std=0.05,
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
     load_test_model(exp_name='bnn_vague_0.05priorNL2', n_epochs=60000,
-                  num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+                    num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
     load_test_model(exp_name='bnn_vague_0.05priorNL3', n_epochs=60000,
-                  num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+                    num_layers=3, h_dim=50, activation='relu', init_std=0.05,
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
     load_test_model(exp_name='bnn_vague_0.05priorNL4', n_epochs=60000,
-
-    # full_training(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,
-    #               num_layers=1, h_dim=50, activation='relu', init_std=0.05,
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_0.05priorNL2', n_epochs=60000,
-    #               num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_0.05priorNL3', n_epochs=60000,
-    #               num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_initpriorNL4', n_epochs=60000,
-    #               num_layers=4, h_dim=50, activation='relu', init_std='prior',
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    # full_training(exp_name='bnn_vague_initpriorNL5', n_epochs=60000,
-    #               num_layers=5, h_dim=50, activation='relu', init_std='prior',
-    #               likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    load_test_model(exp_name='bnn_vague_initpriorNL3', n_epochs=60000,
-                    num_layers=3, h_dim=50, activation='relu', init_std='prior',
+                    num_layers=4, h_dim=50, activation='relu', init_std=0.05,
                     likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    load_test_model(exp_name='bnn_vague_initpriorNL4', n_epochs=60000,
-                    num_layers=4, h_dim=50, activation='relu', init_std='prior',
-                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    load_test_model(exp_name='bnn_vague_initpriorNL5', n_epochs=60000,
-                    num_layers=5, h_dim=50, activation='relu', init_std='prior',
-                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
-    full_training(exp_name='bnn_vague_0.05priorNL4', n_epochs=60000,
-                  num_layers=4, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
     load_test_model(exp_name='bnn_vague_0.05priorNL5', n_epochs=60000,
-                  num_layers=5, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+                    num_layers=5, h_dim=50, activation='relu', init_std=0.05,
+                    likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
     # load_test_model(exp_name='bnn_vague_initpriorNL1', n_epochs=60000,
     #                 num_layers=1, h_dim=50, activation='relu', init_std=0.05,
     #                 likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
