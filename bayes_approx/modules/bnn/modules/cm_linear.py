@@ -10,8 +10,9 @@ class CMBayesLinear(nn.Module):
     Learnable single prior std shared by all weights and biases.
     Prior mean is zero for all weights and biases.
     """
-    def __init__(self, in_features, out_features, _prior_mean_hyperstd_param, prior_weight_std=1.0, prior_bias_std=1.0,
-                 bias=True, init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
+    def __init__(self, in_features, out_features,
+                 _prior_mean_hyperstd_param, prior_weight_std=1.0, prior_bias_std=1.0,
+                 bias=True, init_std=0.05, sqrt_width_scaling=True, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(CMBayesLinear, self).__init__()
         self.in_features = in_features
@@ -90,21 +91,27 @@ class CMBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_cm_bnn(layer_sizes, init_prior_hyperstd, activation='ReLU', **layer_kwargs):
+def make_linear_cm_bnn(layer_sizes, init_prior_hyperstd, hyperprior_learnable,
+                       activation='ReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     bnn = nn.Sequential()
-    # bnn.register_parameter(name='_prior_mean_hyperstd_param',
-    #                        param=nn.Parameter(torch.tensor(
-    #                             np.log(np.exp(init_prior_hyperstd) - 1),
-    #                             device=layer_kwargs['device']
-    #                        )))  # 0.5413
-    bnn.register_buffer('prior_mean_hyperstd', torch.tensor(init_prior_hyperstd))
+
+    if hyperprior_learnable:
+        bnn.register_parameter(
+            name='_prior_mean_hyperstd_param',
+            param=nn.Parameter(torch.tensor(
+                np.log(np.exp(init_prior_hyperstd) - 1),
+                device=layer_kwargs['device']
+            ))
+        )
+    else:
+        bnn.register_buffer(
+            '_prior_mean_hyperstd_param',
+            torch.tensor(np.log(np.exp(init_prior_hyperstd) - 1))
+        )
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
-        # bnn.add_module(f'CMBayesLinear{i}', CMBayesLinear(
-        #     dim_in, dim_out, bnn._prior_mean_hyperstd_param, **layer_kwargs
-        # ))
         bnn.add_module(f'CMBayesLinear{i}', CMBayesLinear(
-            dim_in, dim_out, bnn.prior_mean_hyperstd, **layer_kwargs
+            dim_in, dim_out, bnn._prior_mean_hyperstd_param, **layer_kwargs
         ))
         if i < len(layer_sizes) - 2:
             bnn.add_module(f'Nonlinearity{i}', nonlinearity)

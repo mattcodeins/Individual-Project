@@ -104,11 +104,13 @@ class EmpBayesLinear(nn.Module):
 def make_linear_emp_bnn(layer_sizes, init_prior_std, activation='ReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     net = nn.Sequential()
-    net.register_parameter(name='_prior_std_param',
-                           param=nn.Parameter(torch.tensor(
-                                np.log(np.exp(init_prior_std) - 1),
-                                device=layer_kwargs['device']
-                           )))  # 0.5413
+    net.register_parameter(
+        name='_prior_std_param',
+        param=nn.Parameter(torch.tensor(
+            np.log(np.exp(init_prior_std) - 1),
+            device=layer_kwargs['device']
+        ))
+    )
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
         net.add_module(f'EmpBayesLinear{i}', EmpBayesLinear(dim_in, dim_out, net._prior_std_param, **layer_kwargs))
         if i < len(layer_sizes) - 2:

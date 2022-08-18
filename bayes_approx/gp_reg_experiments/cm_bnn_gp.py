@@ -6,19 +6,19 @@ import torch.nn as nn
 import os
 import sys
 import inspect
-
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-from datasets.gp_reg_dataset import gp_regression as d
 from modules.bnn.modules.cm_linear import make_linear_cm_bnn
 from modules.bnn.modules.loss import CollapsedMeanLoss, nELBO
 from modules.bnn.utils import *
 
+from datasets.gp_reg_dataset import gp_regression as d
 
-def full_training(exp_name=None, n_epochs=10000,
-                  num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+
+def full_training(exp_name=None, n_epochs=10000, num_layers=2, h_dim=50, activation='relu',
+                  init_std=0.05, hyperprior_learnable=False,
                   init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05):
     torch.manual_seed(1)
     if exp_name == 'hyper':
@@ -43,7 +43,9 @@ def full_training(exp_name=None, n_epochs=10000,
                     'sqrt_width_scaling': True,
                     'init_std': init_std,
                     'device': device}
-    model = make_linear_cm_bnn(layer_sizes, init_prior_hyperstd, activation, **layer_kwargs)
+    model = make_linear_cm_bnn(
+        layer_sizes, init_prior_hyperstd, hyperprior_learnable, activation, **layer_kwargs
+    )
     if init_lik_std is None:
         log_lik_var = torch.ones(size=(), device=device)*np.log(0.05**2)
     elif torch.cuda.is_available():
@@ -54,7 +56,7 @@ def full_training(exp_name=None, n_epochs=10000,
         log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*np.log(normal_lik_std**2))
     print("BNN architecture: \n", model)
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'empBNN initialisation', device)
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'cmBNN initialisation', device)
 
     # training hyperparameters
     learning_rate = 1e-3
@@ -79,15 +81,24 @@ def full_training(exp_name=None, n_epochs=10000,
 
 
 if __name__ == "__main__":
-    full_training(exp_name='hyper', n_epochs=60000,
-                  num_layers=3, h_dim=50, activation='relu', init_std=0.05,
+    full_training(exp_name='hyper', n_epochs=60000, num_layers=2,
+                  init_std=0.05, hyperprior_learnable=False,
                   init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
-    full_training(exp_name='hyper', n_epochs=60000,
-                  num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-                  init_lik_std=0.05, init_prior_std=5.0, init_prior_hyperstd=0.05)
-    # full_training(exp_name='hyper', n_epochs=60000,
-    #               num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-    #               init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
-    # full_training(exp_name='hyper', n_epochs=60000,
-    #               num_layers=4, h_dim=50, activation='relu', init_std=0.05,
-    #               init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    full_training(exp_name='hyper', n_epochs=60000, num_layers=2,
+                  init_std=0.05, hyperprior_learnable=True,
+                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    full_training(exp_name='hyper', n_epochs=60000, num_layers=3,
+                  init_std=0.05, hyperprior_learnable=False,
+                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    full_training(exp_name='hyper', n_epochs=60000, num_layers=3,
+                  init_std=0.05, hyperprior_learnable=True,
+                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    full_training(exp_name='hyper', n_epochs=60000, num_layers=4,
+                  init_std=0.05, hyperprior_learnable=False,
+                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    full_training(exp_name='hyper', n_epochs=60000, num_layers=4,
+                  init_std=0.05, hyperprior_learnable=True,
+                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    # full_training(exp_name='hyper', n_epochs=60000, num_layers=3,
+    #               init_std=0.05, hyperprior_learnable=False,
+    #               init_lik_std=0.05, init_prior_std=5.0, init_prior_hyperstd=0.05)

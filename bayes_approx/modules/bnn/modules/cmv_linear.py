@@ -10,8 +10,9 @@ class CMVBayesLinear(nn.Module):
     Learnable single prior std shared by all weights and biases.
     Prior mean is zero for all weights and biases.
     """
-    def __init__(self, in_features, out_features, _hyperprior_alpha_param, _hyperprior_beta_param, _hyperprior_t_param,
-                 bias=True, init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
+    def __init__(self, in_features, out_features,
+                 _hyperprior_alpha_param, _hyperprior_beta_param, _hyperprior_t_param,
+                 bias=True, init_std=0.05, sqrt_width_scaling=True, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(CMVBayesLinear, self).__init__()
         self.in_features = in_features
@@ -118,7 +119,11 @@ def make_linear_cmv_bnn(layer_sizes, init_prior_hyperstd, activation='ReLU', **l
                            )))  # 0.5413
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
         bnn.add_module(f'CMVBayesLinear{i}', CMVBayesLinear(
-            dim_in, dim_out, bnn._hyperprior_alpha_param, bnn._hyperprior_beta_param, bnn._hyperprior_t_param, **layer_kwargs
+            dim_in, dim_out,
+            bnn._hyperprior_alpha_param,
+            bnn._hyperprior_beta_param,
+            bnn._hyperprior_t_param,
+            **layer_kwargs
         ))
         if i < len(layer_sizes) - 2:
             bnn.add_module(f'Nonlinearity{i}', nonlinearity)
