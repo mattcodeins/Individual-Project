@@ -22,7 +22,7 @@ def full_training(exp_name=None, n_epochs=10000,
     torch.manual_seed(1)
     if exp_name == 'hyper':
         exp_name = (f'empBNN_GPtoyreg_nl{num_layers}_hdim{h_dim}_ils{init_lik_std}_ips{init_prior_std}')
-        exp_name = uniquify(exp_name)
+    exp_name = uniquify(exp_name)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
