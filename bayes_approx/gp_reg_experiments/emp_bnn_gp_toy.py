@@ -18,12 +18,11 @@ from modules.bnn.utils import *
 
 def full_training(exp_name=None, n_epochs=10000,
                   num_layers=2, h_dim=50, activation='relu',
-                  init_std=0.1, init_lik_std=0.05, init_prior_std=1.0):
+                  init_std=0.05, init_lik_std=0.05, init_prior_std=1.0):
     torch.manual_seed(1)
     if exp_name == 'hyper':
-        exp_name = (f'nl{num_layers}_hdim{h_dim}_ils{init_lik_std}_ips{init_prior_std}'
-                    + '_BNN_GPtoyreg')
-    exp_name = uniquify(exp_name)
+        exp_name = (f'empBNN_GPtoyreg_nl{num_layers}_hdim{h_dim}_ils{init_lik_std}_ips{init_prior_std}')
+        exp_name = uniquify(exp_name)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -40,7 +39,11 @@ def full_training(exp_name=None, n_epochs=10000,
                     'init_std': init_std,
                     'device': device}
     model = make_linear_emp_bnn(layer_sizes, init_prior_std, activation, **layer_kwargs)
-    log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*np.log(init_lik_std**2))  # Gaussian likelihood
+    if init_lik_std is None:
+        log_lik_var = torch.ones(size=(), device=device)*np.log(0.05**2)
+    else:
+        normal_lik_std = torch.cuda.FloatTensor(d.normalise_data(init_lik_std, 0, train.y_std))
+        log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*torch.log(normal_lik_std**2))
     print("BNN architecture: \n", model)
 
     d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'empBNN initialisation', device)
@@ -58,27 +61,33 @@ def full_training(exp_name=None, n_epochs=10000,
 
     logs = training_loop(
         model, n_epochs, opt, lr_sch, nelbo, train_loader, test_loader, log_lik_var,
-        d.test_step, train, exp_name, device
+        d.mse_test_step, train, exp_name, device
     )
 
-    plot_training_loss(logs)
+    # plot_training_loss_together(logs, exp_name=exp_name)
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'empBNN approximate posterior', device)
+    # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'empBNN approximate posterior', device)
 
-    return d.test_step(model, test_loader, train, predict), logs[-1][1]
+    return d.mse_test_step(model, test_loader, train, predict), logs[-1][1]
 
 
 if __name__ == "__main__":
-    t1, e1 = full_training(exp_name='hyper', n_epochs=1000,
-                           num_layers=1, h_dim=50, activation='relu',
-                           init_std=0.1, init_lik_std=0.05, init_prior_std=1.0)
+    full_training(exp_name='hyper', n_epochs=60000,
+                  num_layers=2, h_dim=50, activation='relu',
+                  init_std='prior', init_lik_std=0.05, init_prior_std=1.0)
+    full_training(exp_name='hyper', n_epochs=60000,
+                  num_layers=3, h_dim=50, activation='relu',
+                  init_std='prior', init_lik_std=0.05, init_prior_std=1.0)
+    # full_training(exp_name='hyper', n_epochs=60000,
+    #                        num_layers=5, h_dim=50, activation='relu',
+    #                        init_std=0.05, init_lik_std=0.05, init_prior_std=1.0)
     # t1, e1 = full_training(experiment_name=None, n_epochs=60000,
     #                        num_layers=2, h_dim=50, activation='relu', init_std=0.1,
     #                        init_lik_std=0.05, init_prior_std=1.0)
     # t1, e1 = full_training(experiment_name=None, n_epochs=10000,
     #                        num_layers=2, h_dim=50, activation='relu', init_std=0.1,
     #                        init_lik_std=0.05, init_prior_std=1.0)
-  
+
     # load_test_model(experiment_name='nl4_hdim50_likstd0.02_pws1.0_pbs1.0_BNN_GPtoyreg', n_epochs=60000,
     #                 num_layers=4, h_dim=50, activation='relu', init_std=0.05,
     #                 likelihood_std=0.02, prior_weight_std=1.0, prior_bias_std=1.0)

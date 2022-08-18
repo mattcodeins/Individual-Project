@@ -1,4 +1,3 @@
-from mimetypes import init
 import numpy as np
 import math
 import torch
@@ -11,7 +10,7 @@ class BayesLinear(nn.Module):
        the weight W and bias b are sampled from the approximate q distribSution.
     """
     def __init__(self, in_features, out_features, prior_weight_std=1.0, prior_bias_std=1.0,
-                 bias=True, init_std=0.05, sqrt_width_scaling=False, device=None, dtype=None):
+                 bias=True, init_std=0.05, sqrt_width_scaling=True, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(BayesLinear, self).__init__()
         self.in_features = in_features

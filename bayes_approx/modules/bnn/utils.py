@@ -1,4 +1,3 @@
-from pickle import NONE
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -40,7 +39,7 @@ def training_loop(model, N_epochs, opt, lr_sch, nelbo, train_loader, test_loader
             avgnll = sum(nlls[-1000:])/1000
             avgkl = sum(kls[-1000:])/1000
             logs = logging(model, logs, i, avgloss, avgnll, avgkl, beta)
-            test_step(model, test_loader, train, predict, log_lik_var=beta)
+            logs[-1].append(to_numpy(test_step(model, test_loader, train, predict, log_lik_var=beta)))
             if filename is not None:
                 torch.save(model.state_dict(), f'bayes_approx/saved_models/{filename}.pt')
                 write_logs_to_file(logs, filename)
@@ -76,28 +75,28 @@ def train_step(model, opt, nelbo, dataloader, log_noise_var, device=device):
     return tloss, tnll, tkl
 
 
-def classif_test_step(model, nelbo, dataloader, device=device):
-    """
-    Calculate accuracy on test set.
-    """
-    model.eval()
-    N_data = len(dataloader.dataset)
-    tloss, tnll, tkl = 0,0,0
-    correct = 0
-    with torch.no_grad():
-        for x_test, y_test in dataloader:
-            m, _ = predict(model, x_test.reshape((x_test.shape[0],-1)), K=50)
-            loss, nll, kl = nelbo(model, (m, y_test), 1/10)
-            tloss += loss; tnll += nll; tkl += kl
-            pred = m.max(1, keepdim=True)[1]
-            correct += pred.eq(y_test.to(device).view_as(pred)).sum()
-    print(tloss)
-    print(tnll)
-    print(tkl)
-    test_acc = 100. * correct / N_data
-    print('\nTest set: Accuracy: {}/{} ({:.0f}%)\n'.format(
-        correct, N_data, test_acc
-    ))
+# def classif_test_step(model, nelbo, dataloader, device=device):
+#     """
+#     Calculate accuracy on test set.
+#     """
+#     model.eval()
+#     N_data = len(dataloader.dataset)
+#     tloss, tnll, tkl = 0,0,0
+#     correct = 0
+#     with torch.no_grad():
+#         for x_test, y_test in dataloader:
+#             m, _ = predict(model, x_test.reshape((x_test.shape[0],-1)), K=50)
+#             loss, nll, kl = nelbo(model, (m, y_test), 1/10)
+#             tloss += loss; tnll += nll; tkl += kl
+#             pred = m.max(1, keepdim=True)[1]
+#             correct += pred.eq(y_test.to(device).view_as(pred)).sum()
+#     print(tloss)
+#     print(tnll)
+#     print(tkl)
+#     test_acc = 100. * correct / N_data
+#     print('\nTest set: Accuracy: {}/{} ({:.0f}%)\n'.format(
+#         correct, N_data, test_acc
+#     ))
 
 
 def predict(model, x, K=50, device=device):
@@ -165,10 +164,9 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
     """
     What we want to log depends on the learnable parameters.
     """
-    if ml_loss is None:
-        loss_logs = [i+1, loss, nll, prior_reg]
-    else:
-        loss_logs = [i+1, loss, nll, prior_reg, to_numpy(ml_loss)]
+    loss_logs = [i+1, loss, nll, prior_reg]
+    if ml_loss is not None:
+        loss_logs.append(to_numpy(ml_loss))
     first_layer = list(model.modules())[1]
     if isinstance(first_layer, (BayesLinear)):
         logs.append(loss_logs)
@@ -178,14 +176,14 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
     elif isinstance(first_layer, (EmpBayesLinear)):
         prior_std = np.log(1 + np.exp(to_numpy(model._prior_std_param)))
         logs.append(loss_logs + [prior_std])
+        # logs.append(loss_logs + [prior_std] + [to_numpy(*beta)])
         print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}".format(
             logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4]
         ))
     elif isinstance(first_layer, (ExtEmpBayesLinear)):
         fl_prior_avg_std = (to_numpy(first_layer.prior_weight_std) + to_numpy(first_layer.prior_bias_std))/2
         if ml_loss is None:
-            logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(prior_reg),
-                        to_numpy(model.prior_mean), fl_prior_avg_std])
+            logs.append(loss_logs + [to_numpy(model.prior_mean)] + [fl_prior_avg_std])
             print("Epoch {}, nelbo={}, nll={}, kl={}, prior_mean={}, avg prior_std (1st layer)={}".format(
                 logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5]
             ))
@@ -193,7 +191,7 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
             logs.append([i+1, to_numpy(loss), to_numpy(nll), to_numpy(prior_reg), to_numpy(ml_loss),
                         to_numpy(model.prior_mean), fl_prior_avg_std])
             print("Epoch {}, nelbo={}, nll={}, prior_reg={}, prior_mean={}, avg prior_std (1st layer)={}".format(
-                  logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
+                logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
             ))
     elif isinstance(first_layer, (CMBayesLinear)):
         # prior_mean_hyperstd = np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))
@@ -232,17 +230,21 @@ def plot_training_loss(logs, exp_name=None):
 
     plt.show()
     if exp_name is not None:
-        plt.savefig(f'./figures/{exp_name}train.png',bbox_inches='tight')
+        plt.savefig(f'./figures/{exp_name}train.png', bbox_inches='tight')
 
 
 def plot_training_loss_together(logs, title='training curve', exp_name=None):
     x = np.arange(logs.shape[0])*1000
+    print(logs[:,1])
+    print(logs[:,2])
     plt.plot(x, logs[:,1], 'r-', label='nelbo')
     plt.fill_between(x, logs[:,2], label='nll')
     plt.fill_between(x, logs[:,1], logs[:,2], label='kl')
 
     plt.xlabel('epoch')
     plt.ylabel('loss')
+    # plt.ylim(0, 3000)
+    # plt.xlim(0, 60000)
     plt.title(title)
     plt.legend()
     if exp_name is not None:
