@@ -19,11 +19,11 @@ from datasets.gp_reg_dataset import gp_regression as d
 
 def full_training(exp_name=None, n_epochs=10000,
                   num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05):
+                  init_lik_std=0.05, alpha=0.5, beta=0.01, delta=0.1):
     torch.manual_seed(1)
     if exp_name == 'hyper':
-        exp_name = (f'cmBNN_GPtoyreg_nl{num_layers}_ils{init_lik_std}_ips{init_prior_std}'
-                    + f'_ipmhs{init_prior_hyperstd}')
+        exp_name = (f'cmvBNN_GPtoyreg_nl{num_layers}_ils{init_lik_std}_ia{alpha}'
+                    + f'_ib{beta}_id{delta}')
     exp_name = uniquify(exp_name)
 
     # import dataset
@@ -41,7 +41,7 @@ def full_training(exp_name=None, n_epochs=10000,
     layer_kwargs = {'sqrt_width_scaling': True,
                     'init_std': init_std,
                     'device': device}
-    model = make_linear_cmv_bnn(layer_sizes, init_prior_hyperstd, activation, **layer_kwargs)
+    model = make_linear_cmv_bnn(layer_sizes, alpha, beta, delta, activation, **layer_kwargs)
     if init_lik_std is None:
         log_lik_var = torch.ones(size=(), device=device)*np.log(0.05**2)
     elif torch.cuda.is_available():
@@ -52,7 +52,7 @@ def full_training(exp_name=None, n_epochs=10000,
         log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*np.log(normal_lik_std**2))
     print("BNN architecture: \n", model)
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'cmvBNN initialisation', device)
+    # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'cmvBNN initialisation', device)
 
     # training hyperparameters
     learning_rate = 1e-3
@@ -69,9 +69,9 @@ def full_training(exp_name=None, n_epochs=10000,
         d.mse_test_step, train, exp_name, device
     )
 
-    plot_training_loss_together(logs, exp_name=exp_name)
+    # plot_training_loss_together(logs, exp_name=exp_name)
 
-    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'cmvBNN approximate posterior', device)
+    # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'cmvBNN approximate posterior', device)
 
     return d.mse_test_step(model, test_loader, train, predict), logs[-1][1]
 
@@ -85,15 +85,18 @@ def load_test_model(exp_name):
 
 
 if __name__ == "__main__":
-    full_training(exp_name='hyper', n_epochs=60000,
-                  num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-                  init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
-    full_training(exp_name='hyper', n_epochs=60000,
-                  num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-                  init_lik_std=0.05, init_prior_std=5.0, init_prior_hyperstd=0.05)
-    # full_training(exp_name='hyper', n_epochs=60000,
-    #               num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-    #               init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
-    # full_training(exp_name='hyper', n_epochs=60000,
-    #               num_layers=4, h_dim=50, activation='relu', init_std=0.05,
-    #               init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05)
+    # full_training(exp_name='hyper', n_epochs=30000,
+    #               num_layers=3, h_dim=50, activation='relu', init_std=0.05,
+    #               init_lik_std=None, alpha=0.5, beta=0.01, delta=0.1)
+    full_training(exp_name='hyper', n_epochs=30000,
+                  num_layers=1, h_dim=50, activation='relu', init_std=0.05,
+                  init_lik_std=None, alpha=0.5, beta=0.01, delta=0.1)
+    full_training(exp_name='hyper', n_epochs=30000,
+                  num_layers=2, h_dim=50, activation='relu', init_std=0.05,
+                  init_lik_std=None, alpha=0.5, beta=0.01, delta=0.1)
+    full_training(exp_name='hyper', n_epochs=30000,
+                  num_layers=4, h_dim=50, activation='relu', init_std=0.05,
+                  init_lik_std=None, alpha=0.5, beta=0.01, delta=0.1)
+    full_training(exp_name='hyper', n_epochs=30000,
+                  num_layers=5, h_dim=50, activation='relu', init_std=0.05,
+                  init_lik_std=None, alpha=0.5, beta=0.01, delta=0.1)

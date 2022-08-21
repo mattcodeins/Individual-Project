@@ -196,8 +196,7 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
     elif isinstance(first_layer, (CMBayesLinear)):
         # prior_mean_hyperstd = np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))
         # logs.append(loss_logs + [prior_mean_hyperstd])
-        logs.append(loss_logs + [np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))
-])
+        logs.append(loss_logs + [np.log(1 + np.exp(to_numpy(model._prior_mean_hyperstd_param)))])
         print("Epoch {}, nelbo={}, nll={}, kl={}, prior_mean_hyperstd={}".format(
             logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4]
         ))
@@ -206,8 +205,8 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
         # logs.append(loss_logs + [prior_mean_hyperstd])
         logs.append(loss_logs + [np.log(1 + np.exp(to_numpy(model._hyperprior_alpha_param)))]
                               + [np.log(1 + np.exp(to_numpy(model._hyperprior_beta_param)))]
-                              + [np.log(1 + np.exp(to_numpy(model._hyperprior_t_param)))])
-        print("Epoch {}, nelbo={}, nll={}, kl={}, alpha={}, beta={}, t={}".format(
+                              + [np.log(1 + np.exp(to_numpy(model._hyperprior_delta_param)))])
+        print("Epoch {}, nelbo={}, nll={}, kl={}, alpha={}, beta={}, delta={}".format(
             logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
         ))
 

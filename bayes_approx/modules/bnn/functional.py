@@ -53,11 +53,11 @@ def nelbo(model, loss_args, minibatch_ratio, nll_loss, kl_loss):
     return nelbo, nll, kl
 
 
-def _cml(post_mean, post_std, alpha, gamma):
-    gamma = gamma.flatten()[0]
+def _cml(post_mean, post_std, alpha, prior_std):
+    gamma = prior_std**2
     alpha_reg = gamma / (gamma + alpha)
-    cml = ((post_std**2 + alpha_reg*post_mean**2) / gamma
-           - torch.log(post_std**2) - torch.log(alpha_reg) - 1)
+    cml = ((post_std**2 + alpha_reg*post_mean**2) / gamma + torch.log(gamma)
+           - 2*torch.log(post_std) - torch.log(alpha_reg) - 1)
     return cml.sum()/2
 
 
@@ -75,8 +75,7 @@ def cm_loss(model):
     return cml_sum
 
 
-def _cmvl(post_mean, post_std, alpha, beta, t):
-    delta = t/(1+t)
+def _cmvl(post_mean, post_std, alpha, beta, delta):
     cmvl = ((alpha + 1/2)*torch.log(beta + delta*post_mean**2/2 + post_std**2/2)
             - torch.log(post_std) - torch.lgamma(alpha + 1/2) + torch.lgamma(alpha)
             - alpha*torch.log(beta) - torch.log(delta))
@@ -89,10 +88,10 @@ def cmv_loss(model):
     cmvl_sum = torch.Tensor([0]).to(device)
     for m in model.modules():
         if (isinstance(m, (CMVBayesLinear))):
-            cmvl = _cmvl(m.weight_mean, m.weight_std, m.hyperprior_alpha, m.hyperprior_beta, m.hyperprior_t)
+            cmvl = _cmvl(m.weight_mean, m.weight_std, m.hyperprior_alpha, m.hyperprior_beta, m.hyperprior_delta)
             cmvl_sum += cmvl
             if m.bias:
-                cmvl = _cmvl(m.bias_mean, m.bias_std, m.hyperprior_alpha, m.hyperprior_beta, m.hyperprior_t)
+                cmvl = _cmvl(m.bias_mean, m.bias_std, m.hyperprior_alpha, m.hyperprior_beta, m.hyperprior_delta)
                 cmvl_sum += cmvl
     return cmvl_sum
 
@@ -131,7 +130,7 @@ def MLG_gaussian_kl(model):
     device = torch.device("cuda" if next(model.parameters()).is_cuda else "cpu")
     kl = torch.Tensor([0]).to(device)
     kl_sum = torch.Tensor([0]).to(device)
-    for m in model.modules():   
+    for m in model.modules():
         if isinstance(m, (MLGBayesLinear)):
             kl = _gaussian_kl(m.weight_mean, m.weight_std, torch.tensor(0), torch.tensor(1))
             kl_sum += kl

@@ -11,7 +11,7 @@ class CMVBayesLinear(nn.Module):
     Prior mean is zero for all weights and biases.
     """
     def __init__(self, in_features, out_features,
-                 _hyperprior_alpha_param, _hyperprior_beta_param, _hyperprior_t_param,
+                 _hyperprior_alpha_param, _hyperprior_beta_param, _hyperprior_delta_param,
                  bias=True, init_std=0.05, sqrt_width_scaling=True, device=None, dtype=None):
         factory_kwargs = {'device': device, 'dtype': dtype, 'requires_grad': True}
         super(CMVBayesLinear, self).__init__()
@@ -31,14 +31,14 @@ class CMVBayesLinear(nn.Module):
             self.register_parameter('_bias_std_param', None)
         self.reset_parameters(init_std)
 
-        # prior parameters (Gaussian)
+        # hyperprior parameters
         self._hyperprior_alpha_param = _hyperprior_alpha_param
         self._hyperprior_beta_param = _hyperprior_beta_param
-        self._hyperprior_t_param = _hyperprior_t_param
+        self._hyperprior_delta_param = _hyperprior_delta_param
 
         prior_mean = 0
         self.register_buffer('prior_weight_mean_expect', torch.full_like(self.weight_mean, prior_mean))
-        self.prior_weight_std_expect = _hyperprior_beta_param/_hyperprior_alpha_param
+        self.prior_weight_std_expect = np.sqrt(_hyperprior_beta_param/_hyperprior_alpha_param)
         if self.bias:
             self.register_buffer('prior_bias_mean_expect', torch.full_like(self.bias_mean, prior_mean))
             self.prior_bias_std_expect = _hyperprior_beta_param/_hyperprior_alpha_param
@@ -85,8 +85,8 @@ class CMVBayesLinear(nn.Module):
         return torch.log(1 + torch.exp(self._hyperprior_beta_param))
 
     @property
-    def hyperprior_t(self):
-        return torch.log(1 + torch.exp(self._hyperprior_t_param))
+    def hyperprior_delta(self):
+        return torch.log(1 + torch.exp(self._hyperprior_delta_param))
 
     # forward pass using reparam trick
     def forward(self, input):
@@ -99,30 +99,29 @@ class CMVBayesLinear(nn.Module):
 
 
 # construct a BNN with learnable prior (std)
-def make_linear_cmv_bnn(layer_sizes, init_prior_hyperstd, activation='ReLU', **layer_kwargs):
+def make_linear_cmv_bnn(layer_sizes, alpha, beta, delta, activation='ReLU', **layer_kwargs):
     nonlinearity = getattr(nn, activation)() if isinstance(activation, str) else activation
     bnn = nn.Sequential()
-    bnn.register_parameter(name='_hyperprior_alpha_param',
-                           param=nn.Parameter(torch.tensor(
-                                np.log(np.exp(init_prior_hyperstd) - 1),
-                                device=layer_kwargs['device']
-                           )))  # 0.5413
-    bnn.register_parameter(name='_hyperprior_beta_param',
-                           param=nn.Parameter(torch.tensor(
-                                np.log(np.exp(init_prior_hyperstd) - 1),
-                                device=layer_kwargs['device']
-                           )))  # 0.5413
-    bnn.register_parameter(name='_hyperprior_t_param',
-                           param=nn.Parameter(torch.tensor(
-                                np.log(np.exp(init_prior_hyperstd) - 1),
-                                device=layer_kwargs['device']
-                           )))  # 0.5413
+
+    bnn.register_buffer(
+        '_hyperprior_alpha_param',
+        torch.tensor(np.log(np.exp(alpha) - 1))
+    )
+    bnn.register_buffer(
+        '_hyperprior_beta_param',
+        torch.tensor(np.log(np.exp(beta) - 1))
+    )
+    bnn.register_buffer(
+        '_hyperprior_delta_param',
+        torch.tensor(np.log(np.exp(delta) - 1))
+    )
+
     for i, (dim_in, dim_out) in enumerate(zip(layer_sizes[:-1], layer_sizes[1:])):
         bnn.add_module(f'CMVBayesLinear{i}', CMVBayesLinear(
             dim_in, dim_out,
             bnn._hyperprior_alpha_param,
             bnn._hyperprior_beta_param,
-            bnn._hyperprior_t_param,
+            bnn._hyperprior_delta_param,
             **layer_kwargs
         ))
         if i < len(layer_sizes) - 2:
