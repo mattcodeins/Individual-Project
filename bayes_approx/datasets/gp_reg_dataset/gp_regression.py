@@ -1,10 +1,9 @@
-from tkinter import N
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-
+import tensorflow as tf
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -143,7 +142,7 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless,
     y_train = unnormalise_data(normal_train.y, normal_train.y_mean, normal_train.y_std)
 
     # first for the total uncertainty (model/epistemic + data/aleatoric)
-    fig = plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(12, 6))
     plt.plot(x_train, y_train, "kx", mew=2, label='noisy sample points')
     plt.plot(test.x, y_pred_mean, "C0", lw=2, label='prediction mean')
     plt.fill_between(
@@ -173,11 +172,12 @@ def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless,
     plt.legend()
     plt.title(title)
     if exp_name is not None:
-        plt.savefig(f'./figures/{exp_name}out.png', bbox_inches='tight')
+        plt.savefig(f'./figures/{exp_name}_out.png', bbox_inches='tight')
     plt.show()
 
 
-def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title=None, exp_name=None, device=device):
+def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var,
+                       title=None, exp_name=None, device=device):
     if title is None:
         title = 'BNN approximate posterior (MFVI)'
     # plot the BNN prior in function space
@@ -189,7 +189,8 @@ def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var, title=No
     )
     y_pred_mean_samples = [
         get_regression_results(model, x_test_norm, predict, normal_train, K=1)[0]
-        for _ in range(10)]
+        for _ in range(10)
+    ]
     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_lik_var)), 0.0, normal_train.y_std)
     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
     plot_regression(
@@ -279,37 +280,63 @@ def gnll_train(model, dataloader, predict, log_lik_var):
     return tloss
 
 
-# def plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title=''):
-#     x_train = unnormalise_data(normal_train.x, normal_train.x_mean, normal_train.x_std)
-#     y_train = unnormalise_data(normal_train.y, normal_train.y_mean, normal_train.y_std)
-#     plt.plot(x_train, y_train, 'ro', label='data')
-#     plt.plot(test.x, test.y, 'k-', label='ground-truth')
-#     plt.plot(test.x, y_pred_mean, 'b-', label='prediction mean')
-#     # plot the uncertainty as +- 2 * std
-#     # first for the total uncertainty (model/epistemic + data/aleatoric)
-#     plt.fill_between(test.x[:,0], y_pred_mean[:,0] - 1.96*y_pred_std[:,0],
-#                      y_pred_mean[:,0] + 2*y_pred_std[:,0],
-#                      color='c', alpha=0.3, label='total uncertainty')
-#     # then for the model/epistemic uncertainty only
-#     plt.fill_between(test.x[:,0], y_pred_mean[:,0] - 1.96*y_pred_std_noiseless[:,0],
-#                      y_pred_mean[:,0] + 2*y_pred_std_noiseless[:,0],
-#                      color='b', alpha=0.3, label='model uncertainty')
-#     plt.legend()
-#     plt.title(title)
-#     plt.show()
+def gpflow_get_regression_results(m, x, train, lik_var=None, unnormalise=True):
+    y_pred_mean, y_pred_var = m.predict_f(x)
+    y_pred_std = y_pred_var**0.5
+    if lik_var is not None:
+        # total uncertainty: here the preditive std needs to count for output noise variance
+        y_pred_std = (y_pred_std**2 + lik_var)**0.5
+    if unnormalise:
+        y_pred_mean = unnormalise_data(y_pred_mean, train.y_mean, train.y_std)
+        y_pred_std = unnormalise_data(y_pred_std, 0.0, train.y_std)
+    return y_pred_mean, y_pred_std
 
 
-# def plot_bnn_pred_post(model, predict, normal_train, test, log_lik_var#, noise_std, title, device):
-#     # plot the BNN prior in function space
-#     K = 50  # number of Monte Carlos samples used in test time
-#     x_test_norm = normalise_data(test.x, normal_train.x_mean, normal_train.x_std)
-#     x_test_norm = torch.tensor(x_test_norm,).float().to(device)
+def gpflow_plot_bnn_pred_post(m, train, test, lik_var, title=None, exp_name=None):
+    if title is None:
+        title = 'BNN approximate posterior (MFVI)'
+    # predict mean and variance of latent GP at test points
+    x_test_norm = normalise_data(test.x, train.x_mean, train.x_std)
+    y_pred_mean_norm, y_pred_var_noiseless_norm = m.predict_f(x_test_norm)
+    y_pred_mean = unnormalise_data(y_pred_mean_norm, train.y_mean, train.y_std)
+    y_pred_std_noiseless = unnormalise_data(np.sqrt(y_pred_var_noiseless_norm), 0.0, train.y_std)
 
-#     y_pred_mean, y_pred_std_noiseless = get_regression_results(model, x_test_norm, K, predict, normal_train)
-#     model_noise_std = unnormalise_data(to_numpy(torch.exp(0.5*log_lik_var)), 0.0, normal_train.y_std)
-#     y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
-#     plot_regression(normal_train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, title)
-#     print(model_noise_std, noise_std, y_pred_std_noiseless.mean())
+    # generate 10 samples from posterior
+    y_pred_mean_samples_norm = m.predict_f_samples(x_test_norm, 10)  # shape (10, 100, 1)
+    y_pred_mean_samples = unnormalise_data(y_pred_mean_samples_norm, train.y_mean, train.y_std)
+
+    model_noise_std = unnormalise_data(lik_var**0.5, 0.0, train.y_std)
+    y_pred_std = np.sqrt(y_pred_std_noiseless**2 + model_noise_std**2)
+
+    plot_regression(
+        train, test, y_pred_mean, y_pred_std_noiseless, y_pred_std, y_pred_mean_samples, title, exp_name
+    )
+    print(f'model_std: {model_noise_std}, pred_std: {y_pred_std_noiseless.mean()}')
+
+
+def gpflow_test_step(m, test, train, loss_func='mse', lik_var=None):
+    x_test_norm = normalise_data(test.x, train.x_mean, train.x_std)
+    y_pred_mean, y_pred_std = gpflow_get_regression_results(
+        m, x_test_norm, train, lik_var
+    )
+    if loss_func == 'mse':
+        mse = tf.keras.losses.MeanSquaredError()
+        loss = mse(y_pred_mean, test.y).numpy()
+        print('\nTest set: MSE: {}'.format(loss))
+    elif loss_func == 'gnll':
+        loss = np.mean(0.5 * (2*np.log(y_pred_std) + (y_pred_mean - test.y)**2 / y_pred_std**2))
+        print('\nTest set: GNLL: {}'.format(loss))
+    return loss
+
+
+def gpflow_mse_train(m, train, lik_var=None):
+    y_pred_mean, _ = gpflow_get_regression_results(
+        m, train.x, None, lik_var, False
+    )
+    mse = tf.keras.losses.MeanSquaredError()
+    loss = mse(y_pred_mean, train.y).numpy()
+    print('\nTrain set: MSE: {}'.format(loss))
+    return loss
 
 
 if __name__ == '__main__':

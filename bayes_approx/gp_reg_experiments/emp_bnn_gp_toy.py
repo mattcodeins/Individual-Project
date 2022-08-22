@@ -20,6 +20,7 @@ def full_training(exp_name=None, n_epochs=10000,
                   num_layers=2, h_dim=50, activation='relu',
                   init_std=0.05, init_lik_std=0.05, init_prior_std=1.0):
     torch.manual_seed(1)
+
     if exp_name == 'hyper':
         exp_name = (f'empBNN_GPtoyreg_nl{num_layers}_hdim{h_dim}_ils{init_lik_std}_ips{init_prior_std}')
     exp_name = uniquify(exp_name)
@@ -52,7 +53,7 @@ def full_training(exp_name=None, n_epochs=10000,
     learning_rate = 1e-3
     params = list(model.parameters()) + [log_lik_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
-    lr_sch = torch.optim.lr_scheduler.StepLR(opt, n_epochs/4, gamma=0.1)
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, n_epochs/3, gamma=0.1)
 
     # define loss function (-ELBO)
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
