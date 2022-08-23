@@ -53,8 +53,10 @@ def full_training(num_layers=2, h_dim=50, weight_decay=0):
     print("BNN architecture: \n", model)
 
     log_noise_var = nn.Parameter(torch.ones(size=(), device=device)*-9999)  # Equivalent to std 0.05
-    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
-                         'FFNN init (before training, 2 hidden layers)', device)
+    # d.plot_bnn_pred_post(
+    #     model, predict, train, test, log_noise_var,
+    #     f'FFNN init (before training, {num_layers} hidden layers)', device
+    # )
 
     # training hyperparameters
     learning_rate = 1e-3
@@ -67,31 +69,31 @@ def full_training(num_layers=2, h_dim=50, weight_decay=0):
     # training loop
     model.train()
     logs = []
-    for i in range(60000):
+    for i in range(30000):
         loss = train_step(
             model, opt, mse, train_loader, device=device
         )
-        if (i+1) % 100 == 0:
+        if (i+1) % 5000 == 0:
             with torch.no_grad():
-                test_mse = d.test_step(model, test_loader, train, predict)
+                test_mse = d.mse_test_step(model, test_loader, train, predict)
                 logs.append([to_numpy(loss)] + [to_numpy(test_mse)])
                 print("Epoch {}, nll={}, test_mse={}".format(i+1, logs[-1][0], logs[-1][1]))
 
     logs = np.array(logs)
 
-    # plot the training curve
-    plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
-    plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
-    plt.xlabel('epoch')
-    plt.title(f'training loss ({num_layers} hidden layers)')
-    plt.legend()
-    plt.ylim(0, 0.6)
-    plt.show()
-    # plt.savefig('.png')
-    d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
-                         f'FFNN prediction function ({num_layers} hidden layers)')
+    # # plot the training curve
+    # plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
+    # plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
+    # plt.xlabel('epoch')
+    # plt.title(f'training loss ({num_layers} hidden layers)')
+    # plt.legend()
+    # plt.ylim(0, 0.6)
+    # plt.show()
+    # # plt.savefig('.png')
+    # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
+    #                      f'FFNN prediction function ({num_layers} hidden layers)')
 
-    return d.test_step(model, test_loader, train, predict)
+    return d.mse_test_step(model, test_loader, train, predict)
 
 
 def hyper_training_iter(train_loader, test_loader, train, test, num_layers, h_dim, weight_decay):
@@ -165,34 +167,28 @@ def nn_cross_val():
     (train_loader_list, val_loader_list, test_loader,
         normalised_train_list, val_list, test, noise_std) = d.create_regression_dataset_kf(kf)
 
-    best_wd_loss = best_nl_loss = best_h_loss = best_loss = float('inf')
+    best_loss = float('inf')
     for weight_decay in weight_decay_list:
         for num_layers in num_layers_list:
             for height in height_list:
                 t_val_loss = 0
                 for i in range(n_splits):
-                    t_val_loss += hyper_training_iter(train_loader_list[i], val_loader_list[i],
-                                                      normalised_train_list[i], val_list[i],
-                                                      num_layers, height, weight_decay)/n_splits
+                    t_val_loss += hyper_training_iter(
+                        train_loader_list[i], val_loader_list[i],
+                        normalised_train_list[i], val_list[i],
+                        num_layers, height, weight_decay
+                    )/n_splits
                 print(f'Current Model CV Result: wd={weight_decay}, nl={num_layers}, h={height}, cv_loss={t_val_loss}')
-                if t_val_loss < best_wd_loss:
-                    best_wd = weight_decay
-                    best_wd_loss = t_val_loss
-                if t_val_loss < best_nl_loss:
-                    best_nl = num_layers
-                    best_nl_loss = t_val_loss
-                if t_val_loss < best_h_loss:
-                    best_h = height
-                    best_h_loss = t_val_loss
                 if t_val_loss < best_loss:
                     best_model = {'weight_decay': weight_decay, 'num_layers': num_layers, 'height': height}
                     best_loss = t_val_loss
                 print(f'Best CV Loss:{best_loss}. Best Model:{best_model}')
-    print(f'best weight decay: {best_wd}')
-    print(f'best num of layers: {best_nl}')
-    print(f'best height: {best_h}')
 
 
 if __name__ == '__main__':
-    # full_training(num_layers=1, h_dim=50, weight_decay=1e-6)
-    nn_cross_val()
+    # full_training(num_layers=2, h_dim=50, weight_decay=1e-6)
+    full_training(num_layers=2, h_dim=50, weight_decay=1e-4)
+    full_training(num_layers=3, h_dim=50, weight_decay=1e-4)
+    full_training(num_layers=4, h_dim=50, weight_decay=1e-4)
+
+    # nn_cross_val()
