@@ -34,7 +34,7 @@ def train_step(model, opt, nll, dataloader, device):
 
 
 def full_training(num_layers=2, h_dim=50, weight_decay=0):
-    torch.manual_seed(1)
+    # torch.manual_seed(1)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -127,14 +127,14 @@ def hyper_training_iter(train_loader, test_loader, train, test, num_layers, h_di
     model.train()
     logs = []
     losses = []
-    for i in range(30000):
+    for i in range(15000):
         losses.append(float(train_step(
             model, opt, mse, train_loader, device=device))
         )
-        if (i+1) % 5000 == 0:
+        if (i+1) % 15000 == 0:
             with torch.no_grad():
                 train_loss_avg = sum(losses[-1000:])/1000
-                test_mse = d.test_step(model, test_loader, train, predict)
+                test_mse = d.mse_test_step(model, test_loader, train, predict)
                 logs.append([train_loss_avg] + [to_numpy(test_mse)])
                 print("Epoch {}, train_mse={}, test_mse={}".format(i+1, logs[-1][0], logs[-1][1]))
 
@@ -154,13 +154,13 @@ def hyper_training_iter(train_loader, test_loader, train, test, num_layers, h_di
     # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
     #                      f'FFNN prediction function ({num_layers} hidden layers)')
 
-    return d.test_step(model, test_loader, train, predict)
+    return d.mse_test_step(model, test_loader, train, predict)
 
 
 def nn_cross_val():
     n_splits = 5
-    weight_decay_list = [1e-4, 1e-5, 1e-6]
-    num_layers_list = [1, 3, 4]
+    weight_decay_list = [1e-7]
+    num_layers_list = [1, 2, 3]
     height_list = [50]
     kf = KFold(n_splits=n_splits, shuffle=True)
 
@@ -186,9 +186,15 @@ def nn_cross_val():
 
 
 if __name__ == '__main__':
-    # full_training(num_layers=2, h_dim=50, weight_decay=1e-6)
-    full_training(num_layers=2, h_dim=50, weight_decay=1e-4)
-    full_training(num_layers=3, h_dim=50, weight_decay=1e-4)
-    full_training(num_layers=4, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=1, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=2, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=3, h_dim=50, weight_decay=1e-2)
+    # full_training(num_layers=3, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=4, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=5, h_dim=100, weight_decay=1e-4)
+    # full_training(num_layers=1, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=2, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=3, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=4, h_dim=50, weight_decay=1e-4)
 
-    # nn_cross_val()
+    nn_cross_val()

@@ -11,9 +11,11 @@ from modules.bnn.modules.emp_linear import EmpBayesLinear
 from modules.bnn.modules.ext_emp_linear import ExtEmpBayesLinear
 from modules.bnn.modules.cm_linear import CMBayesLinear
 from modules.bnn.modules.cmv_linear import CMVBayesLinear
+from modules.bnn.modules.mlg_linear import MLGBayesLinear
 
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+# device = 'cpu'
 
 
 def to_numpy(x):
@@ -175,11 +177,16 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
         ))
     elif isinstance(first_layer, (EmpBayesLinear)):
         prior_std = np.log(1 + np.exp(to_numpy(model._prior_std_param)))
-        logs.append(loss_logs + [prior_std])
-        # logs.append(loss_logs + [prior_std] + [to_numpy(*beta)])
-        print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}".format(
-            logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4]
-        ))
+        if beta.requires_grad:
+            logs.append(loss_logs + [prior_std] + [*to_numpy(beta)])
+            print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}, beta={}".format(
+                logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5]
+            ))
+        else:
+            logs.append(loss_logs + [prior_std])
+            print("Epoch {}, nelbo={}, nll={}, kl={}, prior_std={}".format(
+                logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4]
+            ))
     elif isinstance(first_layer, (ExtEmpBayesLinear)):
         fl_prior_avg_std = (to_numpy(first_layer.prior_weight_std) + to_numpy(first_layer.prior_bias_std))/2
         if ml_loss is None:
@@ -208,6 +215,11 @@ def logging(model, logs, i, loss, nll, prior_reg, beta=None, ml_loss=None):
                               + [np.log(1 + np.exp(to_numpy(model._hyperprior_delta_param)))])
         print("Epoch {}, nelbo={}, nll={}, kl={}, alpha={}, beta={}, delta={}".format(
             logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3], logs[-1][4], logs[-1][5], logs[-1][6]
+        ))
+    if isinstance(first_layer, (MLGBayesLinear)):
+        logs.append(loss_logs)
+        print("Epoch {}, nelbo={}, nll={}, kl={}".format(
+            logs[-1][0], logs[-1][1], logs[-1][2], logs[-1][3]
         ))
 
     return logs

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import tensorflow as tf
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+# device = 'cpu'
 
 
 class regression_data(Dataset):
@@ -38,7 +39,10 @@ class regression_data(Dataset):
 
 
 def to_numpy(x):
-    return x.detach().cpu().numpy()
+    if torch.is_tensor(x):
+        return x.detach().cpu().numpy()
+    else:
+        return x
 
 
 def normalise_data(x, mean, std):
@@ -214,7 +218,7 @@ def mse_test_step(model, dataloader, normal_train, predict, log_lik_var=None):
     """
     Calculate mean squared error on test set (normalising to train).
     """
-    model.eval()
+    # model.eval()
     tloss = 0
     with torch.no_grad():
         for x_test, y_test in dataloader:
@@ -231,7 +235,7 @@ def gnll_test_step(model, dataloader, normal_train, predict, log_lik_var=None):
     """
     Calculate mean gaussian negative log likelihood on test set (normalising to train).
     """
-    model.eval()
+    # model.eval()
     tloss = 0
     with torch.no_grad():
         for x_test, y_test in dataloader:
@@ -250,7 +254,7 @@ def mse_train(model, dataloader, predict, log_lik_var=None):
     """
     Calculate mean squared error on train set (without normalising to train).
     """
-    model.eval()
+    # model.eval()
     tloss = 0
     with torch.no_grad():
         for x, y in dataloader:
@@ -266,7 +270,7 @@ def gnll_train(model, dataloader, predict, log_lik_var):
     """
     Calculate mean gaussian negative log likelihood on train set (without normalising to train).
     """
-    model.eval()
+    # model.eval()
     tloss = 0
     with torch.no_grad():
         for x, y in dataloader:

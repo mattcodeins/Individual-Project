@@ -3,7 +3,7 @@ import torch
 from modules.bnn.modules.linear import BayesLinear
 from modules.bnn.modules.emp_linear import EmpBayesLinear
 from modules.bnn.modules.ext_emp_linear import ExtEmpBayesLinear
-from modules.bnn.modules.marglikgrad_linear import MLGBayesLinear
+from modules.bnn.modules.mlg_linear import MLGBayesLinear
 from modules.bnn.modules.cm_linear import CMBayesLinear
 from modules.bnn.modules.cmv_linear import CMVBayesLinear
 

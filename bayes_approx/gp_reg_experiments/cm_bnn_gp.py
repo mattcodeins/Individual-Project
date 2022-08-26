@@ -32,7 +32,6 @@ def full_training(exp_name=None, n_epochs=10000, num_layers=2, h_dim=50, activat
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     x_dim, y_dim = 1, 1
-    h_dim = 50
     layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
     if activation == 'relu':
         activation = nn.ReLU()
@@ -82,7 +81,7 @@ def full_training(exp_name=None, n_epochs=10000, num_layers=2, h_dim=50, activat
 
 def load_test_model(exp_name=None, n_epochs=10000, num_layers=2, h_dim=50, activation='relu',
                     init_std=0.05, hyperprior_learnable=False,
-                    init_lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.05):
+                    lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5):
     # create bnn
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
 
@@ -102,13 +101,13 @@ def load_test_model(exp_name=None, n_epochs=10000, num_layers=2, h_dim=50, activ
     model = make_linear_cm_bnn(
         layer_sizes, init_prior_hyperstd, hyperprior_learnable, activation, **layer_kwargs
     )
-    if init_lik_std is None:
+    if lik_std is None:
         log_lik_var = torch.ones(size=(), device=device)*np.log(0.05**2)
     elif torch.cuda.is_available():
-        normal_lik_std = torch.cuda.FloatTensor(d.normalise_data(init_lik_std, 0, train.y_std))
+        normal_lik_std = torch.cuda.FloatTensor(d.normalise_data(lik_std, 0, train.y_std))
         log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*torch.log(normal_lik_std**2))
     else:
-        normal_lik_std = d.normalise_data(init_lik_std, 0, train.y_std)
+        normal_lik_std = d.normalise_data(lik_std, 0, train.y_std)
         log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*np.log(normal_lik_std**2))
     print("BNN architecture: \n", model)
 
@@ -123,39 +122,24 @@ def load_test_model(exp_name=None, n_epochs=10000, num_layers=2, h_dim=50, activ
 
 
 if __name__ == "__main__":
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=3,
-    #               init_std=0.2, hyperprior_learnable=True,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=3,
+    load_test_model(exp_name='cmBNN_GPtoyreg_nl1_ls0.05_ips1.0_hlTrue_ipmhs0.5',
+                    num_layers=1, hyperprior_learnable=True,
+                    lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
+    load_test_model(exp_name='cmBNN_GPtoyreg_nl2_ls0.05_ips1.0_hlTrue_ipmhs0.5',
+                    num_layers=2, hyperprior_learnable=True,
+                    lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
+    load_test_model(exp_name='cmBNN_GPtoyreg_nl3_ls0.05_ips1.0_hlTrue_ipmhs0.5',
+                    num_layers=3, hyperprior_learnable=True,
+                    lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
+    load_test_model(exp_name='cmBNN_GPtoyreg_nl4_ls0.05_ips1.0_hlTrue_ipmhs0.5',
+                    num_layers=4, hyperprior_learnable=True,
+                    lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
+    load_test_model(exp_name='cmBNN_GPtoyreg_nl5_ls0.05_ips1.0_hlTrue_ipmhs0.5',
+                    num_layers=5, hyperprior_learnable=True,
+                    lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
+
+
+
+    # full_training(exp_name='hyper', n_epochs=30000, num_layers=5,
     #               init_std=0.05, hyperprior_learnable=False,
     #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=4,
-    #               init_std=0.05, hyperprior_learnable=False,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=2,
-    #               init_std=0.05, hyperprior_learnable=False,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=4,
-    #               init_std=0.05, hyperprior_learnable=True,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=2,
-    #               init_std=0.05, hyperprior_learnable=True,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=3,
-    #               init_std=0.05, hyperprior_learnable=True,
-    #               lik_std=None, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=3,
-    #               init_std=0.05, hyperprior_learnable=False,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=2.0)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=4,
-    #               init_std=0.05, hyperprior_learnable=False,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=2.0)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=4,
-    #               init_std=0.05, hyperprior_learnable=True,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=2.0)
-    # full_training(exp_name='hyper', n_epochs=30000, num_layers=1,
-    #               init_std=0.2, hyperprior_learnable=True,
-    #               lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
-    full_training(exp_name='hyper', n_epochs=30000, num_layers=1,
-                  init_std=0.05, hyperprior_learnable=False,
-                  lik_std=0.05, init_prior_std=1.0, init_prior_hyperstd=0.5)
