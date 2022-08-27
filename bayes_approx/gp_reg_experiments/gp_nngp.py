@@ -75,10 +75,13 @@ def full_training(exp_name=None, n_epochs=10000,
     torch.manual_seed(1)
     key = random.PRNGKey(1)
 
-    train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
+    train, test, noise_std = d.import_train_test()
+    train_x = train[:,0].reshape(-1,1); train_y = train[:,1].reshape(-1,1)
+    test_x = test[:,0].reshape(-1,1); test_y = test[:,1].reshape(-1,1)
 
     # nngp init
     init_fn, apply_fn, kernel_fn = make_nngp(num_layers, h_dim, w_std, b_std)
+    # _, params = init_fn(key, train_x.shape)
 
     # kwargs = dict(
     #     f=apply_fn,
@@ -86,12 +89,14 @@ def full_training(exp_name=None, n_epochs=10000,
     #     vmap_axes=0
     # )
 
-    apply_fn = jit(apply_fn)
-    kernel_fn = jit(kernel_fn, static_argnames='get')
+    # apply_fn = jit(apply_fn)
+    # kernel_fn = jit(kernel_fn, static_argnames='get')
 
-    k_train_train = kernel_fn(train.x, train.x, 'nngp', params)
-    k_test_train = kernel_fn(test.x, train.x, 'nngp', params)
-    k_test_test = kernel_fn(test.x, test.x, 'nngp', params)
+    k_train_train = kernel_fn(train_x, train_x, 'nngp')
+    k_test_train = kernel_fn(test_x, train_x, 'nngp')
+    k_test_test = kernel_fn(test_x, test_x, 'nngp')
+    std_dev = np.sqrt(np.diag(k_test_test))
+
 
     # predict_fn = nt.predict.gradient_descent_mse_ensemble(kernel_fn, X, Y, diag_reg=1e-4)
     predict_fn = nt.predict.gp_inference(k_train_train, train.y, diag_reg=1e-4)
