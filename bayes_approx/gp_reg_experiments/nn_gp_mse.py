@@ -34,7 +34,7 @@ def train_step(model, opt, nll, dataloader, device):
 
 
 def full_training(num_layers=2, h_dim=50, weight_decay=0):
-    # torch.manual_seed(1)
+    torch.manual_seed(1)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
@@ -44,17 +44,13 @@ def full_training(num_layers=2, h_dim=50, weight_decay=0):
     x_dim, y_dim = 1, 1
     layer_sizes = [x_dim] + [h_dim for _ in range(num_layers)] + [y_dim]
     activation = nn.ReLU()
-    layer_kwargs = {'prior_weight_std': 1.0,
-                    'prior_bias_std': 1.0,
-                    'sqrt_width_scaling': False,
-                    'init_std': 0,
-                    'device': device}
+    layer_kwargs = {'device': device}
     model = make_linear_nn(layer_sizes, activation=activation, **layer_kwargs)
     print("BNN architecture: \n", model)
 
-    log_noise_var = nn.Parameter(torch.ones(size=(), device=device)*-9999)  # Equivalent to std 0.05
+    log_lik_var = nn.Parameter(torch.ones(size=(), device=device)*-9999)
     # d.plot_bnn_pred_post(
-    #     model, predict, train, test, log_noise_var,
+    #     model, predict, train, test, log_lik_var,
     #     f'FFNN init (before training, {num_layers} hidden layers)', device
     # )
 
@@ -77,21 +73,22 @@ def full_training(num_layers=2, h_dim=50, weight_decay=0):
             with torch.no_grad():
                 test_mse = d.mse_test_step(model, test_loader, train, predict)
                 logs.append([to_numpy(loss)] + [to_numpy(test_mse)])
-                print("Epoch {}, nll={}, test_mse={}".format(i+1, logs[-1][0], logs[-1][1]))
+                print("Epoch {}, train_mse={}, test_mse={}".format(i+1, logs[-1][0], logs[-1][1]))
 
     logs = np.array(logs)
 
-    # # plot the training curve
-    # plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
-    # plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
-    # plt.xlabel('epoch')
-    # plt.title(f'training loss ({num_layers} hidden layers)')
-    # plt.legend()
-    # plt.ylim(0, 0.6)
-    # plt.show()
-    # # plt.savefig('.png')
-    # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
-    #                      f'FFNN prediction function ({num_layers} hidden layers)')
+    # plot the training curve
+    plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
+    plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
+    plt.xlabel('epoch')
+    plt.title(f'training loss ({num_layers} hidden layers)')
+    plt.legend()
+    plt.ylim(0, 0.6)
+    plt.show()
+    # plt.savefig('.png')
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var,
+                         f'FFNN prediction function ({num_layers} hl, {weight_decay} wd)',
+                         exp_name='nn1-1e-6')
 
     return d.mse_test_step(model, test_loader, train, predict)
 
@@ -138,29 +135,13 @@ def hyper_training_iter(train_loader, test_loader, train, test, num_layers, h_di
                 logs.append([train_loss_avg] + [to_numpy(test_mse)])
                 print("Epoch {}, train_mse={}, test_mse={}".format(i+1, logs[-1][0], logs[-1][1]))
 
-    logs = np.array(logs)
-
-    # # plot the training curve
-    # plt.plot(np.arange(logs.shape[0]), logs[:, 0], label='mse on train')
-    # plt.plot(np.arange(logs.shape[0]), logs[:, 1], label='mse on test')
-    # plt.xlabel('epoch')
-    # plt.title(f'training loss ({num_layers} hidden layers)')
-    # plt.legend()
-
-    # plt.ylim(0, 0.6)
-    # plt.show()
-    # # plt.savefig('.png')
-
-    # d.plot_bnn_pred_post(model, predict, train, test, log_noise_var,
-    #                      f'FFNN prediction function ({num_layers} hidden layers)')
-
     return d.mse_test_step(model, test_loader, train, predict)
 
 
 def nn_cross_val():
     n_splits = 5
-    weight_decay_list = [1e-7]
-    num_layers_list = [1, 2, 3]
+    weight_decay_list = [1e-6, 1e-4]
+    num_layers_list = [1, 2, 3, 4]
     height_list = [50]
     kf = KFold(n_splits=n_splits, shuffle=True)
 
@@ -186,15 +167,9 @@ def nn_cross_val():
 
 
 if __name__ == '__main__':
-    # full_training(num_layers=1, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=2, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=3, h_dim=50, weight_decay=1e-2)
-    # full_training(num_layers=3, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=4, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=5, h_dim=100, weight_decay=1e-4)
-    # full_training(num_layers=1, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=2, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=3, h_dim=50, weight_decay=1e-4)
-    # full_training(num_layers=4, h_dim=50, weight_decay=1e-4)
+    # full_training(num_layers=1, h_dim=50, weight_decay=1e-6)
+    # full_training(num_layers=2, h_dim=50, weight_decay=1e-6)
+    # full_training(num_layers=3, h_dim=50, weight_decay=1e-6)
+    full_training(num_layers=1, h_dim=50, weight_decay=1e-6)
 
-    nn_cross_val()
+    # nn_cross_val()

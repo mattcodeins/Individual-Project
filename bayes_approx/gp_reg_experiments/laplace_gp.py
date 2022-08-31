@@ -64,7 +64,6 @@ def make_linear_nn(layer_sizes, num_layers):
             nn.Linear(layer_sizes[3], layer_sizes[4]),
             nn.ReLU(),
             nn.Linear(layer_sizes[4], layer_sizes[5]),
-            nn.ReLU(),
         )
     elif num_layers == 5:
         net = nn.Sequential(
@@ -104,14 +103,15 @@ def save_logs(exp_name, rows):
                 writer.writerow(row)
 
 
-def full_training(exp_name=None, n_epochs=1000, num_layers=2, h_dim=50, activation='relu'):
-    torch.manual_seed(1)
+def full_training(exp_name=None, laplace='full', n_epochs=500, num_layers=2, h_dim=50, activation='relu'):
+    # torch.manual_seed(1)
     if exp_name == 'hyper':
-        exp_name = (f'gp_laplacebnn/nl{num_layers}_ne{n_epochs}')
+        exp_name = (f'gp_laplacebnn/nl{num_layers}_lap{laplace}_ne{n_epochs}')
     exp_name = uniquify(exp_name)
 
     # import dataset
     train_loader, test_loader, train, test, noise_std = d.create_regression_dataset()
+    print(noise_std)
 
     # create bnn
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -124,18 +124,23 @@ def full_training(exp_name=None, n_epochs=1000, num_layers=2, h_dim=50, activati
     model = make_linear_nn(layer_sizes, num_layers).to(device)
     print("BNN architecture: \n", model)
 
-    # d.plot_bnn_pred_post(lap, predict, train, test, log_noise_var, noise_std,
-    #                      'BNN init (before training, MFVI)', device)
-
     logging.basicConfig(level=logging.INFO)
+
+    if laplace == 'full':
+        laplace = FullLaplace
+    elif laplace == 'kron':
+        laplace = KronLaplace
 
     lap, model, margliks, losses = marglik_optimization(
         model, train_loader, likelihood='regression', sigma_noise_init=0.05, backend=BackPackGGN,
-        laplace=FullLaplace, n_epochs=n_epochs
+        laplace=laplace, n_epochs=n_epochs
     )
     log_lik_var = torch.log(lap.sigma_noise)
-    # d.plot_bnn_pred_post(
-    #     lap, predict, train, test, log_lik_var, 'Laplace BNN approximate posterior', exp_name, device)
+    print(torch.exp(log_lik_var))
+
+    d.plot_bnn_pred_post(
+        lap, predict, train, test, log_lik_var, 'Laplace BNN approximate posterior', exp_name, device
+    )
 
     rows = zip(margliks, losses)
     save_logs(exp_name, rows)
@@ -148,11 +153,13 @@ def full_training(exp_name=None, n_epochs=1000, num_layers=2, h_dim=50, activati
 
 
 if __name__ == '__main__':
-    # x = full_training(exp_name='hyper', n_epochs=1, num_layers=2, h_dim=50, activation='relu')
+    x = full_training(exp_name='hyper', n_epochs=300, num_layers=2, laplace='full', activation='relu')
+    print(x)
+    # x = full_training(exp_name='hyper', n_epochs=600, num_layers=2, laplace='kron', activation='relu')
     # print(x)
-    x = full_training(exp_name='hyper', n_epochs=1, num_layers=3, h_dim=50, activation='relu')
-    print(x)
-    x = full_training(exp_name='hyper', n_epochs=500, num_layers=4, h_dim=50, activation='relu')
-    print(x)
-    x = full_training(exp_name='hyper', n_epochs=500, num_layers=5, h_dim=50, activation='relu')
-    print(x)
+    # x = full_training(exp_name='hyper', n_epochs=600, num_layers=3, laplace='kron', activation='relu')
+    # print(x)
+    # x = full_training(exp_name='hyper', n_epochs=600, num_layers=4, laplace='kron', activation='relu')
+    # print(x)
+    # x = full_training(exp_name='hyper', n_epochs=600, num_layers=5, laplace='kron', activation='relu')
+    # print(x)

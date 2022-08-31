@@ -245,7 +245,7 @@ def gnll_test_step(model, dataloader, normal_train, predict, log_lik_var=None):
             )
             tloss += F.gaussian_nll_loss(
                 torch.from_numpy(y_pred_mean), y_test, torch.from_numpy(y_pred_std), full=True
-            )/len(dataloader)
+            )
     print('\nTest set: GNLL: {}'.format(tloss))
     return tloss/len(dataloader)
 
@@ -328,7 +328,7 @@ def gpflow_test_step(m, test, train, loss_func='mse', lik_var=None):
         loss = mse(y_pred_mean, test.y).numpy()
         print('\nTest set: MSE: {}'.format(loss))
     elif loss_func == 'gnll':
-        loss = np.mean(0.5 * (2*np.log(y_pred_std) + (y_pred_mean - test.y)**2 / y_pred_std**2))
+        loss = np.mean(0.5 * (2*np.log(y_pred_std) + (y_pred_mean - test.y)**2 / y_pred_std**2 + np.log(2*np.pi)))
         print('\nTest set: GNLL: {}'.format(loss))
     return loss
 

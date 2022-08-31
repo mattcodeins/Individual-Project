@@ -12,6 +12,7 @@ parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
 import datasets.gp_reg_dataset.gp_regression as d
+from modules.bnn.utils import uniquify
 
 
 def log_marg_lik(train, mean_func, kernel, likelihood):
@@ -32,6 +33,7 @@ def full_training(kernel='arccosine', lik_learnable=True, lik_std=0.1, exp_name=
 
     if exp_name == 'hyper':
         exp_name = (f'GP_GPtoyreg_kernel{kernel}_ll{lik_learnable}_ls{lik_std}')
+    exp_name = uniquify(exp_name)
 
     # import dataset
     _, _, train, test, noise_std = d.create_regression_dataset()
@@ -74,4 +76,4 @@ def full_training(kernel='arccosine', lik_learnable=True, lik_std=0.1, exp_name=
 
 
 if __name__ == '__main__':
-    full_training(kernel='arccosine', lik_learnable=False, lik_std=0.04, exp_name='hyper')
+    full_training(kernel='matern', lik_learnable=True, lik_std=0.1, exp_name='hyper')

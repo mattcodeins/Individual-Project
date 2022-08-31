@@ -54,7 +54,7 @@ def full_training(exp_name=None, n_epochs=10000,
     learning_rate = 1e-3
     params = list(model.parameters())  # + [log_lik_var]
     opt = torch.optim.Adam(params, lr=learning_rate)
-    lr_sch = torch.optim.lr_scheduler.StepLR(opt, n_epochs/4, gamma=0.1)
+    lr_sch = torch.optim.lr_scheduler.StepLR(opt, n_epochs, gamma=0.1)
 
     gnll_loss = nn.GaussianNLLLoss(full=True, reduction='sum')
     kl_loss = GaussianKLLoss()
@@ -67,7 +67,7 @@ def full_training(exp_name=None, n_epochs=10000,
     )
     # plot_training_loss(logs)
 
-    # d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN approx. posterior (MFVI)', device)
+    d.plot_bnn_pred_post(model, predict, train, test, log_lik_var, 'BNN approx. posterior (MFVI)', exp_name, device)
 
     return d.mse_test_step(model, test_loader, train, predict), logs[-1][1]
 
@@ -203,9 +203,9 @@ def load_test_model(exp_name=None, n_epochs=None,
 
 
 if __name__ == "__main__":
-    full_training(exp_name=None, n_epochs=30000,
+    full_training(exp_name='hyper', n_epochs=30000,
                   num_layers=3, h_dim=50, activation='relu', init_std=0.05,
-                  likelihood_std=None, prior_weight_std=0.5, prior_bias_std=0.5)
+                  likelihood_std=0.02, prior_weight_std=2.0, prior_bias_std=5.0)
     # load_test_model(exp_name='nl4_hdim50_likstd0.02_pws1.0_pbs1.0_BNN_GPtoyreg', n_epochs=60000,
     #                 num_layers=4, h_dim=50, activation='relu', init_std=0.05,
     #                 likelihood_std=0.02, prior_weight_std=1.0, prior_bias_std=1.0)
@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
     # v2, e2 = full_training(experiment_name='hyper', n_epochs=60000,
     #                        num_layers=2, h_dim=50, activation='relu', init_std=0.05,
-    #                        likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
+    #                        likelihood_std=0.05, prior_weight_sRtd=1.0, prior_bias_std=1.0)
     # v3, e3 = full_training(experiment_name='hyper', n_epochs=60000,
     #                        num_layers=3, h_dim=50, activation='relu', init_std=0.05,
     #                        likelihood_std=0.05, prior_weight_std=1.0, prior_bias_std=1.0)
