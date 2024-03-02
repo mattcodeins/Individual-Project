@@ -17,128 +17,98 @@ sys.path.insert(0, parentdir)
 
 import datasets.gp_reg_dataset.gp_regression as d
 
-torch.manual_seed(1)
-key = random.PRNGKey(1)
 
-train, test, noise_std = d.import_train_test()
-
-X = train[:,0].reshape(-1, 1)
-Y = train[:,1].reshape(-1, 1)
-train = (X, Y)
-Xt = test[:,0].reshape(-1, 1)
-Yt = test[:,1].reshape(-1, 1)
-test = (Xt, Yt)
-
-# plt.plot(X, Y, "kx", mew=2, label='noisy sample points')
-# plt.legend()
-# plt.show()
-
-# nngp init
-h_dim = 1
-num_layers = 2
-
-# x_dim, y_dim = 1, 1
-# init_fn, apply_fn, kernel_fn = stax.serial(
-#     stax.Dense(h_dim, W_std=3.2, b_std=0.5), stax.Relu(),
-#     stax.Dense(h_dim, W_std=3.2, b_std=0.5), stax.Relu(),
-#     stax.Dense(h_dim, W_std=3.2, b_std=0.5), stax.Relu(),
-#     stax.Dense(h_dim, W_std=3.2, b_std=0.5), stax.Relu(),
-#     stax.Dense(h_dim, W_std=3.2, b_std=0.5), stax.Relu(),
-#     stax.Dense(y_dim)
-# )
-
-x_dim, y_dim = 1, 1
-init_fn, apply_fn, kernel_fn = stax.serial(
-    stax.Dense(h_dim, W_std=2.0, b_std=5.0), stax.Relu(),
-    stax.Dense(h_dim, W_std=2.0, b_std=5.0), stax.Relu(),
-    stax.Dense(y_dim)
-)
-
-apply_fn = jit(apply_fn)
-kernel_fn = jit(kernel_fn, static_argnames='get')
-
-prior_draws = []
-for _ in range(10):
-    key, net_key = random.split(key)
-    _, params = init_fn(net_key, (0, 1))
-    prior_draws += [apply_fn(params, Xt)]
+def make_nngp(num_layers, h_dim, w_std, b_std):
+    if num_layers == 1:
+        init_fn, apply_fn, kernel_fn = stax.serial(
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(1, W_std=w_std, b_std=b_std)
+        )
+    elif num_layers == 2:
+        init_fn, apply_fn, kernel_fn = stax.serial(
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(1, W_std=w_std, b_std=b_std)
+        )
+    elif num_layers == 3:
+        init_fn, apply_fn, kernel_fn = stax.serial(
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(1, W_std=w_std, b_std=b_std)
+        )
+    elif num_layers == 4:
+        init_fn, apply_fn, kernel_fn = stax.serial(
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(1, W_std=w_std, b_std=b_std)
+        )
+    elif num_layers == 5:
+        init_fn, apply_fn, kernel_fn = stax.serial(
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(h_dim, W_std=w_std, b_std=b_std), stax.Relu(),
+            stax.Dense(1, W_std=w_std, b_std=b_std)
+        )
+    return init_fn, apply_fn, kernel_fn
 
 
-def format_plot(x=None, y=None):
-    # plt.grid(False)
-    ax = plt.gca()
-    if x is not None:
-        plt.xlabel(x, fontsize=20)
-    if y is not None:
-        plt.ylabel(y, fontsize=20)
+def predict(model, x, K=50, key=random.PRNGKey(1)):
+    init_fn, apply_fn = model
+
+    if K == 1:
+        key, net_key = random.split(key)
+        _, params = init_fn(net_key, (0, 1))
+        return apply_fn(params, test.x), torch.tensor([0])
 
 
-def finalize_plot(shape=(1, 1)):
-    plt.gcf().set_size_inches(
-        shape[0] * 1.5 * plt.gcf().get_size_inches()[1],
-        shape[1] * 1.5 * plt.gcf().get_size_inches()[1])
-    plt.tight_layout()
-    plt.show()
+    return y_pred.mean(0), y_pred.std(0)
 
 
-legend = functools.partial(plt.legend, fontsize=10)
+def full_training(exp_name=None, n_epochs=10000,
+                  num_layers=2, h_dim=50,
+                  w_std=1.0, b_std=1.0, lik_std=0.05):
+    torch.manual_seed(1)
+    key = random.PRNGKey(1)
+
+    train, test, noise_std = d.import_train_test()
+    train_x = train[:,0].reshape(-1,1); train_y = train[:,1].reshape(-1,1)
+    test_x = test[:,0].reshape(-1,1); test_y = test[:,1].reshape(-1,1)
+
+    # nngp init
+    init_fn, apply_fn, kernel_fn = make_nngp(num_layers, h_dim, w_std, b_std)
+    # _, params = init_fn(key, train_x.shape)
+
+    # kwargs = dict(
+    #     f=apply_fn,
+    #     trace_axes=(),
+    #     vmap_axes=0
+    # )
+
+    # apply_fn = jit(apply_fn)
+    # kernel_fn = jit(kernel_fn, static_argnames='get')
+
+    k_train_train = kernel_fn(train_x, train_x, 'nngp')
+    k_test_train = kernel_fn(test_x, train_x, 'nngp')
+    k_test_test = kernel_fn(test_x, test_x, 'nngp')
+    std_dev = np.sqrt(np.diag(k_test_test))
 
 
-def plot_fn(X, Y, Xt, Yt, *fs):
-    plt.plot(X, Y, 'ro', markersize=10, label='train')
+    # predict_fn = nt.predict.gradient_descent_mse_ensemble(kernel_fn, X, Y, diag_reg=1e-4)
+    predict_fn = nt.predict.gp_inference(k_train_train, train.y, diag_reg=1e-4)
 
-    if test is not None:
-        plt.plot(Xt, Yt, 'k--', linewidth=3, label='$f(x)$')
+    nngp_mean, nngp_covariance = predict_fn('nngp', k_test_train, k_test_test)
+    # nngp_mean, nngp_covariance = predict_fn(x_test=test.x, get='nngp', compute_cov=True)
 
-        for f in fs:
-            plt.plot(Xt, f(Xt), '-', linewidth=3)
+    nngp_mean = np.reshape(nngp_mean, (-1,))
+    nngp_std = np.sqrt(np.diag(nngp_covariance))
 
-    format_plot('$x$', '$f$')
-
-
-plot_fn(X, Y, Xt, Yt)
+    plot_posterior(train, test, nngp_mean, nngp_std)
 
 
-for p in prior_draws:
-    plt.plot(Xt, p, linewidth=3, color=[1, 0.65, 0.65])
-
-legend(['train', '$f(x)$', 'random draw'], loc='upper left')
-
-finalize_plot((0.85, 0.6))
-
-kernel = kernel_fn(Xt, Xt, 'nngp')
-std_dev = np.sqrt(np.diag(kernel))
-
-plot_fn(X, Y, Xt, Yt)
-
-plt.fill_between(np.reshape(Xt, (-1,)), 2*std_dev, -2*std_dev, alpha=0.4)
-
-for p in prior_draws:
-    plt.plot(Xt, p, linewidth=3, color=[1, 0.65, 0.65])
-
-finalize_plot((0.85, 0.6))
-
-kernel = kernel_fn(X, X, 'nngp')
-# predict_fn = nt.predict.gradient_descent_mse_ensemble(kernel_fn, X, Y, diag_reg=1e-4)
-predict_fn = nt.predict.gp_inference(kernel, Y, diag_reg=1e-4)
-
-# nngp_mean, nngp_covariance = predict_fn(x_test=Xt, get='nngp', compute_cov=True)
-nngp_mean, nngp_covariance = predict_fn(x_test=Xt, get='nngp', compute_cov=True)
-
-nngp_mean = np.reshape(nngp_mean, (-1,))
-nngp_std = np.sqrt(np.diag(nngp_covariance))
-
-plot_fn(X, Y, Xt, Yt)
-
-plt.plot(Xt, nngp_mean, 'r-', linewidth=3)
-plt.fill_between(
-    np.reshape(Xt, (-1)),
-    nngp_mean - 2 * nngp_std,
-    nngp_mean + 2 * nngp_std,
-    color='red', alpha=0.2)
-
-plt.ylim((-5, 5))
-
-legend(['Train', 'f(x)', 'Bayesian Inference'], loc='upper left')
-
-finalize_plot((0.85, 0.6))
+if __name__ == '__main__':
+    full_training()
